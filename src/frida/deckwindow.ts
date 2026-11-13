@@ -66,10 +66,12 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
     openSide = side;
   }
 
-  // a button the size of a finger: dark plate, gold text, on the right edge between the magicka gem and the graveyard
-  function button(name: string, parent: any, text: string, y: number, action: () => void) {
+  // a button the size of a finger: dark plate, gold text. Placed from the top centre (the match UI is wider than the
+  // screen, so the right edge is off-screen), in the empty board above the card list, left of the deck and graveyard:
+  // nothing the game opens covers it, so a second tap reaches it
+  function button(name: string, parent: any, text: string, x: number, action: () => void) {
     const go = ui.uiNew(name, parent);
-    ui.uiPlace(go, 1, 1, 1, 0.5, -16, y, 150, 64);
+    ui.uiPlace(go, 0.5, 1, 0.5, 0.5, x, -160, 150, 64);
     const bg = ui.uiAdd(go, "UnityEngine.UI.Image");
     bg.method("set_color").invoke(color(0.08, 0.07, 0.06, 0.85));
     const label = ui.uiNew("Label", go.method("get_transform").invoke());
@@ -97,8 +99,12 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
     if (isNull(matchUi)) { p.log("window: no match UI"); return; }
     const parent = matchUi.method("get_transform").invoke();
     openSide = null;
-    button("RdtOppButton", parent, "Opp", -300, () => open("opp"));
-    button("RdtDeckButton", parent, "Deck", -380, () => open("deck"));
+    button("RdtDeckButton", parent, "Deck", 330, () => open("deck"));
+    button("RdtOppButton", parent, "Opp", 490, () => open("opp"));
+    for (const name of ["RdtDeckButton", "RdtOppButton"]) {
+      const t = parent.method("Find", 1).invoke(Il2Cpp.string(name));
+      if (!isNull(t)) t.method("SetAsLastSibling").invoke();
+    }
     builtFor = key;
     p.log("window: buttons added");
   }

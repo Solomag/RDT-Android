@@ -28,6 +28,8 @@ test("release signs sha256:revision and the payload matches the manifest", () =>
       assert.ok(verify(null, Buffer.from(`${m.sha256}:3`), createPublicKey(privateKey), Buffer.from(m.sig, "hex")));
       assert.ok(!verify(null, Buffer.from(`${m.sha256}:4`), createPublicKey(privateKey), Buffer.from(m.sig, "hex")));
       assert.equal(m.url, `https://example.invalid/r/payloads/${m.sha256}.js`);
+      // a key other than the pinned one never publishes
+      assert.throws(() => execFileSync(process.execPath, ["tools/release.mjs", "4"], { cwd: tmp, env: { ...process.env, RDT_SIGNING_KEY: keyFile, RDT_PUBLIC_KEY: "00".repeat(32) }, stdio: "pipe" }));
       // the revision may only grow
       assert.throws(() => execFileSync(process.execPath, ["tools/release.mjs", "3"], { cwd: tmp, env: { ...process.env, RDT_SIGNING_KEY: keyFile }, stdio: "pipe" }));
     } finally { rmSync(keyFile, { force: true }); }

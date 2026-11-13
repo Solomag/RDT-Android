@@ -1,4 +1,4 @@
-// RDT_SIGNING_KEY=<path to the private .pem, outside the repo> node tools/release.mjs <revision> [minCore]
+// RDT_SIGNING_KEY=<path to the private .pem, outside the repo> [RDT_PUBLIC_KEY=<pinned hex>] node tools/release.mjs <revision> [minCore]
 // Builds the module and writes the signed channel files into release/:
 //   release/manifest.json  { revision, minCore, bytes, sha256, sig, url }
 //   release/payloads/<sha256>.js
@@ -26,6 +26,10 @@ execFileSync(process.execPath, ["tools/build.mjs"], { stdio: "inherit" });
 const code = readFileSync("build/rdt.js");
 const { bytes, sha256 } = JSON.parse(readFileSync("build/rdt.meta.json", "utf8"));
 const key = createPrivateKey(readFileSync(keyPath));
+// RDT_PUBLIC_KEY (hex), when set, must be the key pinned in the port's loader: a wrong key never publishes.
+const pinned = process.env.RDT_PUBLIC_KEY;
+const own = createPublicKey(key).export({ type: "spki", format: "der" }).subarray(-32).toString("hex");
+if (pinned && pinned.toLowerCase() !== own) { console.error("the signing key does not match RDT_PUBLIC_KEY"); process.exit(2); }
 const message = Buffer.from(`${sha256}:${revision}`, "utf8");
 const sig = sign(null, message, key).toString("hex");
 if (!verify(null, message, createPublicKey(key), Buffer.from(sig, "hex"))) throw Error("signature self-check failed");

@@ -1,0 +1,55 @@
+# Signs and publishes a module release into release/ (the channel the port's loader reads).
+# Manual only: Actions → release → Run workflow. Never runs on pull requests.
+name: release
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: "Revision (empty = current + 1)"
+        required: false
+      minCore:
+        description: "Lowest port core revision this module needs"
+        required: false
+        default: "0"
+permissions:
+  contents: write
+concurrency: release
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    env:
+      # The public key pinned in the port's loader (C:\tr\r hook/32-rdt-loader.ts); the signing key must match it.
+      RDT_PUBLIC_KEY: 8e8414717e295a6fdafbe517c40cbea6d2b1fc73ed0bd910927e8edfa7d74700
+      RDT_CHANNEL_BASE: https://raw.githubusercontent.com/${{ github.repository }}/main/release/
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm test
+      - name: Sign and write release/
+        env:
+          SIGNING_KEY: ${{ secrets.RDT_SIGNING_KEY }}
+          REVISION_INPUT: ${{ inputs.revision }}
+          MIN_CORE: ${{ inputs.minCore }}
+        run: |
+          set -eu
+          umask 077
+          key="$RUNNER_TEMP/rdt-signing.pem"
+          trap 'rm -f "$key"' EXIT
+          printf '%s\n' "$SIGNING_KEY" > "$key"
+          revision="$REVISION_INPUT"
+          if [ -z "$revision" ]; then
+            if [ -f release/manifest.json ]; then revision=$(( $(node -p 'require("./release/manifest.json").revision') + 1 )); else revision=1; fi
+          fi
+          RDT_SIGNING_KEY="$key" node tools/release.mjs "$revision" "${MIN_CORE:-0}"
+      - name: Commit release/
+        run: |
+          set -eu
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add release
+          git commit -m "Release $(node -p 'require("./release/manifest.json").revision')"
+          git push

@@ -16,13 +16,19 @@ function fakeWorld() {
     field: f => ({ value: fields[f] }),
     method: m => ({ invoke: (...a) => methods[m](...a), overload: () => ({ invoke: (...a) => methods[m](...a) }) }),
   });
-  const deck = obj({ id: { toString: () => "77" }, displayName: { content: "abc-deck_name" } }, { get_DisplayName: () => ({ content: "Колода" }) });
+  const list = items => obj({}, { get_Count: () => items.length, get_Item: i => items[i] });
+  const dict = map => obj({}, { ContainsKey: k => k in map, get_Item: k => map[k] });
+  // card 11 is an alternate art of 10: two copies of 11 + one of 10 count as three of 10
+  const cards = list([obj({ typeHash: 10, numRegular: 1, numPremium: 0 }), obj({ typeHash: 11, numRegular: 1, numPremium: 1 }), obj({ typeHash: 20, numRegular: 2, numPremium: 0 })]);
+  const deck = obj({ id: { toString: () => "77" }, displayName: { content: "abc-deck_name" }, cards }, { get_DisplayName: () => ({ content: "Колода" }) });
+  const types = dict({ 10: obj({ AlternateOfCardTypeHash: 0 }), 11: obj({ AlternateOfCardTypeHash: 10 }), 20: obj({ AlternateOfCardTypeHash: 0 }) });
+  const codes = dict({ 10: { content: "xa" }, 20: { content: "yb" } });
   const decks = obj({}, { get_Count: () => 1, get_Item: () => deck });
   const klasses = {
     "SPTESL.LogMessageTranslator": { methods: [{ name: "AddHistoryQueue", parameterCount: 1, isStatic: false, virtualAddress: handle(0x1000) }] },
     "SPTESL.GameNetworkManager": obj({}, { get_Instance: () => obj({ _isSpectating: false, _localPlayerUid: obj({ Id: 5 }) }) }),
     "SettingsManager": obj({}, { get_Instance: () => obj({ LastRetryMatchRequestData: obj({ DeckId: { toString: () => "77" } }) }) }),
-    "SparkleServices.ServicesManager": obj({}, { get_Instance: () => obj({ Inventory: obj({}, { get_InventoryDescription: () => obj({ decks }) }) }) }),
+    "SparkleServices.ServicesManager": obj({}, { get_Instance: () => obj({ Inventory: obj({}, { get_InventoryDescription: () => obj({ decks }), get_CardTypeLookup: () => types, get_HashToCodeLookup: () => codes }) }) }),
   };
   let array;
   const outputClass = { alloc: () => obj({}, { ".ctor": a => { array = a; }, Flush: () => {} }) };
@@ -63,7 +69,7 @@ test("module starts and records queues into the PC format", () => {
   assert.deepEqual([...chunks[2].data], [8, 2, 9]);
   const h = readHeader(chunks);
   assert.equal(h.local, "5"); assert.equal(h.deck, "77"); assert.equal(h.name, "Колода");
-  assert.match(utf8Decode(chunks[0].data), /^local=5\ndeck=77\ncode=\nname=Колода\n$/);
+  assert.match(utf8Decode(chunks[0].data), /^local=5\ndeck=77\ncode=SPAAABybABxa\nname=Колода\n$/);
 });
 
 test("module without Il2Cpp only logs", () => {

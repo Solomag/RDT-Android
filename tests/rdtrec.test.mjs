@@ -36,3 +36,11 @@ test("utf8 codec matches Buffer", () => {
     assert.equal(utf8Decode(Buffer.from(s, "utf8")), s);
   }
 });
+
+test("deck code like the PC's GameData.DeckCode", async () => {
+  const { deckCode } = await import("../build/core.mjs");
+  const codes = { 1: "aa", 2: "bB", 3: "cc", 4: "dd" };
+  assert.equal(deckCode(new Map([[1, 3], [2, 1], [3, 3], [4, 2]]), h => codes[h]), "SPABbBABddACaacc");
+  assert.equal(deckCode(new Map([[1, 5]]), h => codes[h]), "SPAAAAAAAAABaa");
+  assert.equal(deckCode(new Map([[9, 1]]), h => codes[h]), "");
+});

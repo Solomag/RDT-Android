@@ -2,7 +2,7 @@
 // in the same format as the PC tracker (MatchTracker.Replay.cs), so the PC can replay phone matches.
 // Chunk 0 = header ("local=, deck=, code=, name=" lines; written again when it changes), chunk 1 = one message.
 // The phone build has no MessageExtensions.ToByteArray: CalculateSize + CodedOutputStream(byte[]) + WriteTo + Flush.
-import { encodeChunk, encodeHeader, ChunkHeader, ChunkQueue } from "../core";
+import { encodeChunk, encodeHeader, ChunkHeader, ChunkQueue, deckCode } from "../core";
 import type { TeslPort } from "./port";
 
 const EXTERNAL = "/sdcard/Android/data/com.bethsoft.theelderscrollslegends/files";
@@ -42,7 +42,8 @@ export function startRecorder(p: TeslPort): void {
 
   function writeHeader() {
     const deck = matchDeckId();
-    const h = { local: localPlayerUid(), deck, code: "", name: deck !== "0" ? deckName(deck) : "" };
+    const info = deck !== "0" ? deckInfo(deck) : { name: "", code: "" };
+    const h = { local: localPlayerUid(), deck, code: info.code, name: info.name };
     const key = JSON.stringify(h);
     if (key === header) return;
     header = key;
@@ -61,7 +62,10 @@ export function startRecorder(p: TeslPort): void {
       return isNull(retry) ? "0" : String(retry.field("DeckId").value);
     } catch (_) { return "0"; }
   }
-  function deckName(id: string): string {
+  // The deck's display name and its code (the PC replay falls back to the code when the id is not in its inventory,
+  // e.g. a phone-only or stock deck).
+  function deckInfo(id: string): { name: string; code: string } {
+    const info = { name: "", code: "" };
     try {
       const inventory = services.method("get_Instance").invoke().field("Inventory").value;
       const decks = inventory.method("get_InventoryDescription").invoke().field("decks").value;
@@ -72,10 +76,33 @@ export function startRecorder(p: TeslPort): void {
         // DisplayName localizes stock deck keys ("…-deck_name") like the PC's loadedDeckName; the raw field is the fallback.
         let name: any = null;
         try { name = deck.method("get_DisplayName").invoke(); } catch (_) { /* older build */ }
-        return String(name?.content ?? deck.field("displayName").value?.content ?? "");
+        info.name = String(name?.content ?? deck.field("displayName").value?.content ?? "");
+        try { info.code = codeOfDeck(inventory, deck); } catch (_) { /* the code is optional */ }
+        break;
       }
-    } catch (_) { /* name is only for people reading the file */ }
-    return "";
+    } catch (_) { /* header extras only */ }
+    return info;
+  }
+
+  function codeOfDeck(inventory: any, deck: any): string {
+    const types = inventory.method("get_CardTypeLookup").invoke();
+    const codes = inventory.method("get_HashToCodeLookup").invoke();
+    const cards = deck.field("cards").value;
+    const counts = new Map<number, number>();
+    const n = Number(cards.method("get_Count").invoke());
+    for (let i = 0; i < n; i++) {
+      const card = cards.method("get_Item").invoke(i);
+      const hash = Number(card.field("typeHash").value);
+      const copies = Number(card.field("numRegular").value) + Number(card.field("numPremium").value);
+      if (copies <= 0) continue;
+      let base = hash;
+      if (types.method("ContainsKey").invoke(hash)) {
+        const alt = Number(types.method("get_Item").invoke(hash).field("AlternateOfCardTypeHash").value);
+        if (alt) base = alt;
+      }
+      counts.set(base, (counts.get(base) ?? 0) + copies);
+    }
+    return deckCode(counts, h => (codes.method("ContainsKey").invoke(h) ? String(codes.method("get_Item").invoke(h).content) : undefined));
   }
 
   function record(self: any, queue: any) {

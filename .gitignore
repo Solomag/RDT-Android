@@ -5,3 +5,4 @@ build/
 *.key
 # phone recordings are checked for personal data before they go into tests/fixtures
 recordings/
+tests/golden/

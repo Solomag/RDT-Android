@@ -42,3 +42,11 @@ RDT_SIGNING_KEY=D:/keys/rdt-release.pem RDT_CHANNEL_BASE=https://raw.githubuserc
 1. подпись — закреплённым публичным ключом;
 2. размер и SHA-256 файла;
 3. что номер ревизии больше прежнего.
+
+## Стенд в Node (M3)
+- `npm run schema -- <dump.cs>` — перегенерировать `src/core/proto/schema.json`. Это схема HistoryQueue: номера и типы полей из дампа, кода игры там нет.
+- `node tools/dump-rec.mjs <file.rdtrec> [--json]` — разобрать запись: заголовок, число сообщений, типы событий (с `--json` — все сообщения).
+- `npm run golden` — прогнать TS-ядро по эталонам и сравнить ключевые строки с выводом ПК-трекера (`tools/normalize.mjs`). Эталоны лежат только локально, в `tests/golden/` (в git не попадают, там реальные матчи):
+  - `tests/golden/<имя>/recording.rdtrec`
+  - `tests/golden/<имя>/expected.txt` — `replay-result.txt` ПК-трекера по этой записи
+  - `tests/golden/cards.json` — данные карт.

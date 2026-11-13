@@ -1,0 +1,887 @@
+{
+ "CcgRpc.CardCommandItem": {
+  "1": {
+   "name": "CommandList",
+   "type": "message",
+   "message": "CcgRpc.CardCommandList"
+  },
+  "2": {
+   "name": "OpponentCommandList",
+   "type": "message",
+   "message": "CcgRpc.OpponentCardCommandList"
+  }
+ },
+ "CcgRpc.CardCommandList": {
+  "1": {
+   "name": "ListUid",
+   "type": "int32"
+  },
+  "4": {
+   "name": "MustSelectCommand",
+   "type": "bool"
+  },
+  "5": {
+   "name": "IsMulliganPhase",
+   "type": "bool"
+  },
+  "6": {
+   "name": "ValidCommands",
+   "type": "message",
+   "repeated": true,
+   "message": "CcgRpc.CardCommandState"
+  },
+  "7": {
+   "name": "AlreadyUsedCardUids",
+   "type": "int32",
+   "repeated": true
+  },
+  "8": {
+   "name": "NotReadyCardUids",
+   "type": "int32",
+   "repeated": true
+  },
+  "9": {
+   "name": "FullLaneCardUids",
+   "type": "int32",
+   "repeated": true
+  }
+ },
+ "CcgRpc.CardCommandState": {
+  "1": {
+   "name": "CardNetUid",
+   "type": "int32"
+  },
+  "2": {
+   "name": "SourceOverrideNetUid",
+   "type": "int32"
+  },
+  "3": {
+   "name": "ValidCardCommandMask",
+   "type": "int32"
+  },
+  "4": {
+   "name": "ValidBoardLanes",
+   "type": "int32"
+  },
+  "5": {
+   "name": "FullBoardLanes",
+   "type": "int32"
+  },
+  "6": {
+   "name": "PlayTargets",
+   "type": "int32",
+   "repeated": true
+  },
+  "7": {
+   "name": "AttackTargets",
+   "type": "int32",
+   "repeated": true
+  },
+  "8": {
+   "name": "ActiveAbilityTargets",
+   "type": "int32",
+   "repeated": true
+  },
+  "9": {
+   "name": "EquipTargets",
+   "type": "int32",
+   "repeated": true
+  },
+  "10": {
+   "name": "LaneTargets",
+   "type": "enum",
+   "repeated": true
+  },
+  "11": {
+   "name": "CustomCardUiEnum",
+   "type": "int32"
+  },
+  "12": {
+   "name": "DisplayCards",
+   "type": "message",
+   "repeated": true,
+   "message": "CcgRpc.HistoryCard"
+  },
+  "13": {
+   "name": "NumActionChoices",
+   "type": "int32"
+  },
+  "14": {
+   "name": "TargetingPromptLocKey",
+   "type": "string"
+  },
+  "15": {
+   "name": "CustomPromptLocKey",
+   "type": "string"
+  }
+ },
+ "CcgRpc.CardLink": {
+  "1": {
+   "name": "LinkedToCardUid",
+   "type": "int32"
+  },
+  "2": {
+   "name": "HiddenFromOwner",
+   "type": "bool"
+  },
+  "3": {
+   "name": "HiddenFromOppponent",
+   "type": "bool"
+  },
+  "4": {
+   "name": "LinkOwnerNetId",
+   "type": "int32"
+  }
+ },
+ "CcgRpc.CardPosition": {
+  "1": {
+   "name": "OwningPlayerUid",
+   "type": "int32"
+  },
+  "2": {
+   "name": "GameZoneName",
+   "type": "int32"
+  },
+  "3": {
+   "name": "GameZoneType",
+   "type": "int32"
+  },
+  "4": {
+   "name": "LaneIndex",
+   "type": "int32"
+  },
+  "5": {
+   "name": "PositionIndex",
+   "type": "int32"
+  }
+ },
+ "CcgRpc.Doinker": {
+  "1": {
+   "name": "DoinkerIdShow",
+   "type": "int32"
+  },
+  "2": {
+   "name": "DoinkerIdHide",
+   "type": "int32"
+  }
+ },
+ "CcgRpc.DynamicTagReference": {
+  "1": {
+   "name": "CardIdReference",
+   "type": "int32"
+  },
+  "2": {
+   "name": "TagId",
+   "type": "int32"
+  }
+ },
+ "CcgRpc.Enchantment": {
+  "1": {
+   "name": "SourceCardId",
+   "type": "int32"
+  },
+  "2": {
+   "name": "TitleLocKey",
+   "type": "string"
+  },
+  "3": {
+   "name": "TextLocKey",
+   "type": "string"
+  },
+  "4": {
+   "name": "EnchantmentMechanics",
+   "type": "message",
+   "repeated": true,
+   "message": "CcgRpc.UIMechanicsInformation"
+  },
+  "5": {
+   "name": "EnchantmentCardReferences",
+   "type": "int32",
+   "repeated": true
+  },
+  "6": {
+   "name": "Type",
+   "type": "enum"
+  },
+  "7": {
+   "name": "AdditionalCreatureSubtypes",
+   "type": "int32",
+   "repeated": true
+  },
+  "8": {
+   "name": "NewColorSubtypes",
+   "type": "int32",
+   "repeated": true
+  },
+  "9": {
+   "name": "TagReferences",
+   "type": "message",
+   "repeated": true,
+   "message": "CcgRpc.DynamicTagReference"
+  }
+ },
+ "CcgRpc.FloatingCards": {
+  "1": {
+   "name": "CardNetUids",
+   "type": "int32",
+   "repeated": true
+  }
+ },
+ "CcgRpc.FullGameState": {
+  "1": {
+   "name": "PlayerStates",
+   "type": "message",
+   "repeated": true,
+   "message": "CcgRpc.FullPlayerState"
+  },
+  "2": {
+   "name": "NeverExclude",
+   "type": "bool"
+  },
+  "3": {
+   "name": "HistoryQueue",
+   "type": "message",
+   "message": "CcgRpc.HistoryQueue"
+  },
+  "4": {
+   "name": "CurrentTurnPlayerId",
+   "type": "int32"
+  },
+  "5": {
+   "name": "DuringMulligan",
+   "type": "bool"
+  }
+ },
+ "CcgRpc.FullPlayerState": {
+  "1": {
+   "name": "Player",
+   "type": "message",
+   "message": "CcgRpc.HistoryPlayer"
+  },
+  "2": {
+   "name": "StaticGameZones",
+   "type": "message",
+   "repeated": true,
+   "message": "CcgRpc.NetStaticGameZone"
+  },
+  "3": {
+   "name": "DynamicGameZones",
+   "type": "message",
+   "repeated": true,
+   "message": "CcgRpc.NetDynamicGameZone"
+  }
+ },
+ "CcgRpc.Hanger": {
+  "1": {
+   "name": "TitleLocKey",
+   "type": "string"
+  },
+  "2": {
+   "name": "TextLocKey",
+   "type": "string"
+  },
+  "3": {
+   "name": "ImageSourceReference",
+   "type": "int32"
+  }
+ },
+ "CcgRpc.HistoryCard": {
+  "1": {
+   "name": "CardNetUid",
+   "type": "int32"
+  },
+  "2": {
+   "name": "CurrentPosition",
+   "type": "message",
+   "message": "CcgRpc.CardPosition"
+  },
+  "3": {
+   "name": "IsFullState",
+   "type": "bool"
+  },
+  "4": {
+   "name": "Silenced",
+   "type": "bool"
+  },
+  "5": {
+   "name": "CardId",
+   "type": "int32"
+  },
+  "6": {
+   "name": "CurrentHealth",
+   "type": "int32"
+  },
+  "7": {
+   "name": "AffectedAttributeName",
+   "type": "int32",
+   "repeated": true
+  },
+  "8": {
+   "name": "AffectedAttributeValue",
+   "type": "int32",
+   "repeated": true
+  },
+  "9": {
+   "name": "AffectedRareAttributeName",
+   "type": "int32",
+   "repeated": true
+  },
+  "10": {
+   "name": "AffectedRareAttributeValue",
+   "type": "int32",
+   "repeated": true
+  },
+  "11": {
+   "name": "BaseOverrideAttributeName",
+   "type": "int32",
+   "repeated": true
+  },
+  "12": {
+   "name": "BaseOverrideAttributeValue",
+   "type": "int32",
+   "repeated": true
+  },
+  "13": {
+   "name": "Enchantments",
+   "type": "message",
+   "repeated": true,
+   "message": "CcgRpc.Enchantment"
+  },
+  "14": {
+   "name": "HuntStates",
+   "type": "message",
+   "repeated": true,
+   "message": "CcgRpc.TreasureHuntState"
+  },
+  "15": {
+   "name": "Hangers",
+   "type": "message",
+   "repeated": true,
+   "message": "CcgRpc.Hanger"
+  },
+  "16": {
+   "name": "Links",
+   "type": "message",
+   "repeated": true,
+   "message": "CcgRpc.CardLink"
+  },
+  "17": {
+   "name": "OverrideCardId",
+   "type": "int32"
+  },
+  "18": {
+   "name": "IsPremium",
+   "type": "bool"
+  },
+  "19": {
+   "name": "UseCurrentHealth",
+   "type": "bool"
+  },
+  "20": {
+   "name": "TotalAbilityUses",
+   "type": "int32"
+  },
+  "21": {
+   "name": "CreatorCardId",
+   "type": "int32"
+  },
+  "22": {
+   "name": "PreviousGameZoneType",
+   "type": "int32"
+  },
+  "23": {
+   "name": "ItemOwnerNetUid",
+   "type": "int32"
+  },
+  "24": {
+   "name": "GrantsAuras",
+   "type": "bool"
+  },
+  "25": {
+   "name": "HasHealthDebuff",
+   "type": "bool"
+  },
+  "26": {
+   "name": "HasPowerDebuff",
+   "type": "bool"
+  },
+  "27": {
+   "name": "HasCostDebuff",
+   "type": "bool"
+  },
+  "28": {
+   "name": "ComponentCards",
+   "type": "message",
+   "repeated": true,
+   "message": "CcgRpc.HistoryCard"
+  },
+  "29": {
+   "name": "IsRevealed",
+   "type": "bool"
+  },
+  "30": {
+   "name": "HideAuraStatusFx",
+   "type": "bool"
+  }
+ },
+ "CcgRpc.HistoryInputVisualization": {
+  "1": {
+   "name": "PlayerInstanceId",
+   "type": "int32"
+  },
+  "2": {
+   "name": "Card",
+   "type": "message",
+   "message": "CcgRpc.HistoryCard"
+  },
+  "3": {
+   "name": "TargetCard",
+   "type": "message",
+   "message": "CcgRpc.HistoryCard"
+  },
+  "4": {
+   "name": "EmoteType",
+   "type": "int32"
+  },
+  "7": {
+   "name": "DragLaneIndex",
+   "type": "int32"
+  }
+ },
+ "CcgRpc.HistoryItem": {
+  "1": {
+   "name": "Type",
+   "type": "enum"
+  },
+  "2": {
+   "name": "ActingPlayerInstanceId",
+   "type": "int32"
+  },
+  "3": {
+   "name": "ActorCardNetUid",
+   "type": "int32"
+  },
+  "4": {
+   "name": "TargetCardNetUid",
+   "type": "int32"
+  },
+  "5": {
+   "name": "AssetHash",
+   "type": "int32"
+  },
+  "6": {
+   "name": "EffectTriggerType",
+   "type": "int32"
+  },
+  "7": {
+   "name": "PlayerAttributeName",
+   "type": "int32"
+  },
+  "8": {
+   "name": "PlayerAttributeValue",
+   "type": "int32"
+  },
+  "9": {
+   "name": "GameZoneName",
+   "type": "int32"
+  },
+  "10": {
+   "name": "DrainTargetCardNetUid",
+   "type": "int32"
+  },
+  "11": {
+   "name": "AffectedPlayersArray",
+   "type": "message",
+   "repeated": true,
+   "message": "CcgRpc.HistoryPlayer"
+  },
+  "12": {
+   "name": "AffectedCardsArray",
+   "type": "message",
+   "repeated": true,
+   "message": "CcgRpc.HistoryCard"
+  },
+  "13": {
+   "name": "AffectedLanesArray",
+   "type": "message",
+   "repeated": true,
+   "message": "CcgRpc.HistoryLane"
+  },
+  "14": {
+   "name": "TestSubtype",
+   "type": "int32"
+  },
+  "15": {
+   "name": "CardCommandItem",
+   "type": "message",
+   "message": "CcgRpc.CardCommandItem"
+  },
+  "16": {
+   "name": "FullGameState",
+   "type": "message",
+   "message": "CcgRpc.FullGameState"
+  },
+  "17": {
+   "name": "InputVisualization",
+   "type": "message",
+   "message": "CcgRpc.HistoryInputVisualization"
+  },
+  "18": {
+   "name": "MatchIntroPlayers",
+   "type": "message",
+   "repeated": true,
+   "message": "CcgRpc.HistoryPlayerDescription"
+  },
+  "19": {
+   "name": "MatchIntroLanes",
+   "type": "message",
+   "repeated": true,
+   "message": "CcgRpc.MessageDynamicCardLane"
+  },
+  "20": {
+   "name": "MulliganDisabled",
+   "type": "bool"
+  },
+  "21": {
+   "name": "IsBonusMatch",
+   "type": "bool"
+  },
+  "22": {
+   "name": "IsLegendsMatch",
+   "type": "bool"
+  },
+  "23": {
+   "name": "DoinkerInformation",
+   "type": "message",
+   "message": "CcgRpc.Doinker"
+  },
+  "24": {
+   "name": "DialogueId",
+   "type": "int32"
+  },
+  "25": {
+   "name": "FloatingCardsUpdate",
+   "type": "message",
+   "message": "CcgRpc.FloatingCards"
+  },
+  "26": {
+   "name": "IgnoredByClientLog",
+   "type": "bool"
+  },
+  "27": {
+   "name": "SanitizeRule",
+   "type": "enum"
+  },
+  "28": {
+   "name": "MechanicType",
+   "type": "int32"
+  },
+  "29": {
+   "name": "EquipCardNetUid",
+   "type": "int32"
+  },
+  "30": {
+   "name": "UseProphecyBanner",
+   "type": "bool"
+  },
+  "31": {
+   "name": "UseActingLane",
+   "type": "bool"
+  },
+  "32": {
+   "name": "ActingLaneType",
+   "type": "int32"
+  },
+  "33": {
+   "name": "ActingLaneIndex",
+   "type": "int32"
+  },
+  "34": {
+   "name": "TimeRemainingMillisecondsUpdate",
+   "type": "int32"
+  },
+  "35": {
+   "name": "InitialAllowedMillisecondsUpdate",
+   "type": "int32"
+  }
+ },
+ "CcgRpc.HistoryLane": {
+  "1": {
+   "name": "PlayerInstanceId",
+   "type": "int32"
+  },
+  "2": {
+   "name": "ZoneName",
+   "type": "int32"
+  },
+  "3": {
+   "name": "ZoneType",
+   "type": "int32"
+  },
+  "4": {
+   "name": "LaneIndex",
+   "type": "int32"
+  },
+  "5": {
+   "name": "LaneType",
+   "type": "int32"
+  },
+  "6": {
+   "name": "ExtraLaneType",
+   "type": "int32"
+  }
+ },
+ "CcgRpc.HistoryPlayer": {
+  "1": {
+   "name": "IsFullState",
+   "type": "bool"
+  },
+  "2": {
+   "name": "PlayerUid",
+   "type": "int32"
+  },
+  "3": {
+   "name": "DeckCardCount",
+   "type": "int32"
+  },
+  "4": {
+   "name": "AttributeNames",
+   "type": "int32",
+   "repeated": true
+  },
+  "5": {
+   "name": "AttributeValues",
+   "type": "int32",
+   "repeated": true
+  },
+  "6": {
+   "name": "RareAttributeNames",
+   "type": "int32",
+   "repeated": true
+  },
+  "7": {
+   "name": "RareAttributeValues",
+   "type": "int32",
+   "repeated": true
+  },
+  "8": {
+   "name": "ActionLevelCardIds",
+   "type": "int32",
+   "repeated": true
+  },
+  "9": {
+   "name": "ActionLevelValues",
+   "type": "int32",
+   "repeated": true
+  },
+  "11": {
+   "name": "Spectators",
+   "type": "string",
+   "repeated": true
+  },
+  "12": {
+   "name": "ValidDeckCount",
+   "type": "bool"
+  },
+  "13": {
+   "name": "DualSpectators",
+   "type": "string",
+   "repeated": true
+  }
+ },
+ "CcgRpc.HistoryPlayerDescription": {
+  "1": {
+   "name": "PlayerInstanceId",
+   "type": "int32"
+  },
+  "2": {
+   "name": "PlayerName",
+   "type": "string"
+  },
+  "3": {
+   "name": "AiOpponentId",
+   "type": "int32"
+  },
+  "4": {
+   "name": "DeckColorNames",
+   "type": "int32",
+   "repeated": true
+  },
+  "5": {
+   "name": "InventoryTypes",
+   "type": "string",
+   "repeated": true
+  },
+  "6": {
+   "name": "InventoryValues",
+   "type": "string",
+   "repeated": true
+  },
+  "7": {
+   "name": "Health",
+   "type": "int32"
+  },
+  "8": {
+   "name": "IsHuman",
+   "type": "bool"
+  },
+  "9": {
+   "name": "NumStartingRunes",
+   "type": "int32"
+  },
+  "10": {
+   "name": "Rank",
+   "type": "int32"
+  },
+  "11": {
+   "name": "LegendRank",
+   "type": "int32"
+  },
+  "12": {
+   "name": "VoOverride",
+   "type": "string"
+  },
+  "13": {
+   "name": "ArenaBonusMatch",
+   "type": "bool"
+  }
+ },
+ "CcgRpc.HistoryQueue": {
+  "1": {
+   "name": "Queue",
+   "type": "message",
+   "repeated": true,
+   "message": "CcgRpc.HistoryItem"
+  }
+ },
+ "CcgRpc.MessageDynamicCardLane": {
+  "1": {
+   "name": "Cards",
+   "type": "message",
+   "repeated": true,
+   "message": "CcgRpc.HistoryCard"
+  },
+  "2": {
+   "name": "LaneType",
+   "type": "int32"
+  },
+  "3": {
+   "name": "LaneSize",
+   "type": "int32"
+  },
+  "4": {
+   "name": "ExtraLaneType",
+   "type": "int32"
+  },
+  "5": {
+   "name": "ZoneName",
+   "type": "int32"
+  },
+  "6": {
+   "name": "LaneIndex",
+   "type": "int32"
+  }
+ },
+ "CcgRpc.MessageStaticCardLane": {
+  "1": {
+   "name": "Cards",
+   "type": "message",
+   "repeated": true,
+   "message": "CcgRpc.HistoryCard"
+  },
+  "2": {
+   "name": "LaneType",
+   "type": "int32"
+  },
+  "3": {
+   "name": "LaneSize",
+   "type": "int32"
+  }
+ },
+ "CcgRpc.NetDynamicGameZone": {
+  "1": {
+   "name": "ZoneName",
+   "type": "int32"
+  },
+  "2": {
+   "name": "ZoneType",
+   "type": "int32"
+  },
+  "3": {
+   "name": "TotalCardCount",
+   "type": "int32"
+  },
+  "4": {
+   "name": "Lanes",
+   "type": "message",
+   "repeated": true,
+   "message": "CcgRpc.MessageDynamicCardLane"
+  }
+ },
+ "CcgRpc.NetStaticGameZone": {
+  "1": {
+   "name": "ZoneName",
+   "type": "int32"
+  },
+  "2": {
+   "name": "ZoneType",
+   "type": "int32"
+  },
+  "3": {
+   "name": "TotalCardCount",
+   "type": "int32"
+  },
+  "4": {
+   "name": "Lanes",
+   "type": "message",
+   "repeated": true,
+   "message": "CcgRpc.MessageStaticCardLane"
+  }
+ },
+ "CcgRpc.OpponentCardCommandList": {
+  "1": {
+   "name": "ActionablePublicCardNetUids",
+   "type": "int32",
+   "repeated": true
+  },
+  "4": {
+   "name": "ValidCommands",
+   "type": "message",
+   "repeated": true,
+   "message": "CcgRpc.CardCommandState"
+  },
+  "5": {
+   "name": "ListUid",
+   "type": "int32"
+  }
+ },
+ "CcgRpc.TreasureHuntState": {
+  "1": {
+   "name": "HuntType",
+   "type": "int32"
+  },
+  "2": {
+   "name": "HuntProgress",
+   "type": "int32",
+   "repeated": true
+  },
+  "3": {
+   "name": "Complete",
+   "type": "bool"
+  }
+ },
+ "CcgRpc.UIMechanicsInformation": {
+  "1": {
+   "name": "UiMechanicType",
+   "type": "int32"
+  },
+  "2": {
+   "name": "DisplayHanger",
+   "type": "bool"
+  },
+  "3": {
+   "name": "DisplayIcon",
+   "type": "bool"
+  }
+ }
+}

@@ -6,7 +6,9 @@
     "build": "node tools/build.mjs",
     "test": "node tools/build.mjs --node && node --test tests/*.test.mjs",
     "keygen": "node tools/keygen.mjs",
-    "release": "node tools/release.mjs"
+    "release": "node tools/release.mjs",
+    "golden": "node tools/build.mjs --node && node tools/golden.mjs",
+    "schema": "node tools/gen-schema.mjs"
   },
   "devDependencies": {
     "esbuild": "0.28.2"

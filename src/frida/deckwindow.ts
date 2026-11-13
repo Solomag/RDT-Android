@@ -60,10 +60,13 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
         cc.method("set_NetUid").invoke(boxed(netUidClass, "Id", ++fake));
         labels.set(fake, label);
         if (attrs.length > 0) {
-          modified.add(fake);
-          for (const [attr, value] of attrs) cc.method("SetAttribute").invoke(boxed(attrClass, "value__", attr), value);
-          const health = attrs.find(([a]) => a === 25);
-          if (health) try { cc.method("set_CurrentHealth").invoke(health[1]); } catch (_) { /* no such setter */ }
+          // not yet seen on a phone: if setting the attributes fails, the copy still shows (plain), the list still opens
+          try {
+            for (const [attr, value] of attrs) cc.method("SetAttribute").invoke(boxed(attrClass, "value__", attr), value);
+            const health = attrs.find(([a]) => a === 25);
+            if (health) try { cc.method("set_CurrentHealth").invoke(health[1]); } catch (_) { /* no such setter */ }
+            modified.add(fake);
+          } catch (e) { fail("modified copy", e); }
         }
         list.method("Add").invoke(cc);
       }

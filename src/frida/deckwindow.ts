@@ -75,6 +75,7 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
   function open(side: "deck" | "opp") {
     const t = current();
     if (!t) { p.log("window: no tracked deck yet"); return; }
+    applySettings(); // the port's settings screen may have changed "count left only" since the last list
     if (isNull(board) || isNull(matchUi)) { p.log("window: no board"); return; }
     // the game's toggle reopens on a second tap: close it ourselves when our list for this side is the open one
     const active = matchUi.method("GetCardListPickerActive").invoke() === true;
@@ -157,15 +158,9 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
       onEnter(args: any) {
         const side = pileSide.get(args[0].toString());
         if (!side) return;
-        const trigger = new Il2Cpp.Object(args[0]);
-        // the game is in the middle of its own input: open on the next frame, outside this call; while our list is up,
-        // the pile's count tooltip would sit over it, so it goes (the list shows the same count)
-        p.frameGate!("rdt deck pile", () => {
-          try {
-            open(side);
-            if (openSide) try { trigger.method("UnFire").invoke(); } catch (_) { /* tooltip stays */ }
-          } catch (e) { fail("open", e); }
-        });
+        // the game is in the middle of its own input: open on the next frame, outside this call. The pile's count
+        // tooltip stays: hiding it (UnFire, 0.5.2) also stopped our list from showing.
+        p.frameGate!("rdt deck pile", () => { try { open(side); } catch (e) { fail("open", e); } });
       },
     });
   }

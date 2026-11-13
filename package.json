@@ -8,7 +8,8 @@
     "keygen": "node tools/keygen.mjs",
     "release": "node tools/release.mjs",
     "golden": "node tools/build.mjs --node && node tools/golden.mjs",
-    "schema": "node tools/gen-schema.mjs"
+    "schema": "node tools/gen-schema.mjs",
+    "goldens:import": "node tools/import-goldens.mjs"
   },
   "devDependencies": {
     "esbuild": "0.28.2"

@@ -11,7 +11,8 @@ process.chdir(fileURLToPath(new URL("..", import.meta.url)));
 
 const root = "tests/golden";
 if (!existsSync(root)) { console.log("no goldens (tests/golden is empty)"); process.exit(0); }
-const cards = existsSync(`${root}/cards.json`) ? JSON.parse(readFileSync(`${root}/cards.json`, "utf8")) : {};
+const cardsFile = existsSync(`${root}/cards.json`) ? JSON.parse(readFileSync(`${root}/cards.json`, "utf8")) : {};
+const cards = cardsFile.cards ?? cardsFile; // PC export: { language, count, keywords, cards: { id: {...} } }
 const only = process.argv[2];
 let pass = 0, fail = 0;
 for (const name of readdirSync(root, { withFileTypes: true }).filter(d => d.isDirectory()).map(d => d.name).sort()) {

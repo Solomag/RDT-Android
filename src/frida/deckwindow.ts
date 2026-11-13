@@ -123,8 +123,8 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
   }
 
   // The deck piles on the board are the buttons, as on PC: the match UI keeps a 3D tooltip trigger per pile
-  // (MatchUI._deckCountTooltips3d: [0] yours, [1] the opponent's). A tap on a pile reaches TooltipTrigger3D.OnMouseDown;
-  // the game shows its count tooltip, and the module opens (or closes) the pile's list next to it.
+  // (MatchUI._deckCountTooltips3d: [0] yours, [1] the opponent's). When the game shows a pile's count tooltip
+  // (TooltipTrigger3D.Fire), the module opens (or closes) that pile's list next to it.
   const pileSide = new Map<string, "deck" | "opp">();
 
   function objectName(o: any): string {
@@ -163,15 +163,18 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
   }
 
   const trigger3d = klass("TooltipTrigger3D");
-  const mouseDown = trigger3d.methods.find((m: any) => m.name === "OnMouseDown" && m.parameterCount === 0);
-  if (!mouseDown || mouseDown.virtualAddress.isNull()) throw Error("TooltipTrigger3D.OnMouseDown not found");
+  // Not OnMouseDown: on touch it reaches whichever pile collider the perspective camera lines up (the magicka gems hit
+  // the pile colliders, the books often don't, a tap on the list's X re-fires the last one). Fire(bool) is the game's own
+  // verdict: it runs when the game shows that trigger's tooltip ("Cards in Your/Opponent's Deck").
+  const mouseDown = trigger3d.methods.find((m: any) => m.name === "Fire" && m.parameterCount === 1);
+  if (!mouseDown || mouseDown.virtualAddress.isNull()) throw Error("TooltipTrigger3D.Fire not found");
   {
     const attach = p.hookAttach ?? ((target: any, callbacks: any) => Interceptor.attach(target, callbacks));
     attach(mouseDown.virtualAddress, {
       onEnter(args: any) {
         const side = pileSide.get(args[0].toString());
         // diagnostics while the pile mapping is being settled: which trigger a tap reached
-        try { current()?.log(`Window: tap on ${objectName(new Il2Cpp.Object(args[0]))} ${args[0]} -> ${side ?? "ignored"}`); } catch (_) { /* log only */ }
+        try { current()?.log(`Window: tooltip of ${objectName(new Il2Cpp.Object(args[0]))} ${args[0]} -> ${side ?? "ignored"}`); } catch (_) { /* log only */ }
         if (!side) return;
         // the game is in the middle of its own input: open on the next frame, outside this call. The pile's count
         // tooltip stays: hiding it (UnFire, 0.5.2) also stopped our list from showing.

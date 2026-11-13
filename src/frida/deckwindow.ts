@@ -157,8 +157,15 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
       onEnter(args: any) {
         const side = pileSide.get(args[0].toString());
         if (!side) return;
-        // the game is in the middle of its own input: open on the next frame, outside this call
-        p.frameGate!("rdt deck pile", () => { try { open(side); } catch (e) { fail("open", e); } });
+        const trigger = new Il2Cpp.Object(args[0]);
+        // the game is in the middle of its own input: open on the next frame, outside this call; while our list is up,
+        // the pile's count tooltip would sit over it, so it goes (the list shows the same count)
+        p.frameGate!("rdt deck pile", () => {
+          try {
+            open(side);
+            if (openSide) try { trigger.method("UnFire").invoke(); } catch (_) { /* tooltip stays */ }
+          } catch (e) { fail("open", e); }
+        });
       },
     });
   }

@@ -3,7 +3,7 @@
 // Log lines go to <external files>/rdt/Match.log (like the PC's Match.log); CHECK also to the port's log. M5 step 1: no UI yet.
 import { decodeHistoryQueue } from "../core/proto/decode";
 import { Cards } from "../core/tracker/cards";
-import { Tracker } from "../core/tracker/tracker";
+import { Tracker, BotDecks } from "../core/tracker/tracker";
 import { gameCardSource } from "./cardsource";
 import type { QueueEvent } from "./recorder";
 import type { TeslPort } from "./port";
@@ -13,7 +13,7 @@ const TypeFullGameState = 11;
 
 export interface Live { onQueue: (e: QueueEvent) => void; current: () => Tracker | null; onDeckLoaded?: () => void }
 
-export function startLive(p: TeslPort, logDir: string, source?: CardSource, makeDirs?: (path: string) => void): Live {
+export function startLive(p: TeslPort, logDir: string, source?: CardSource, makeDirs?: (path: string) => void, bots?: () => BotDecks | undefined): Live {
   const cards = new Cards(source ?? gameCardSource(p, m => p.log(m)));
   // opened on the first line, after creating the folder (a fresh install has no rdt folder yet); retried if it fails
   let log: File | null = null, logTries = 0;
@@ -32,7 +32,7 @@ export function startLive(p: TeslPort, logDir: string, source?: CardSource, make
 
   function newMatch(e: QueueEvent) {
     stream = e.translator;
-    tracker = new Tracker({ cards, log: write }, e.local);
+    tracker = new Tracker({ cards, log: write, bots: bots?.() }, e.local);
     pending = [];
     pastHandle = "";
     write("Events: new match stream");

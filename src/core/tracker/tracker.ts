@@ -915,14 +915,15 @@ export class Tracker {
 
   // The cards a window shows as (card id, copies): the deck's remaining copies; the opponent's remaining copies of a
   // known deck, otherwise the cards seen (as often as played). Feeds the game's own card list on the phone.
-  windowCards(side: "deck" | "opp"): [string, number][] {
-    const out: [string, number][] = [];
+  // The third value is the label the PC shows in the count's place ("left/total", "x2", "seen"; "" for single copies).
+  windowCards(side: "deck" | "opp"): [string, number, string][] {
+    const out: [string, number, string][] = [];
     if (side === "deck") {
-      for (const row of this.deckRows ?? []) if (row.Remaining > 0) out.push([row.Id, row.Remaining]);
+      for (const row of this.deckRows ?? []) if (row.Remaining > 0) out.push([row.Id, row.Remaining, this.countText(row.Remaining, row.Total)]);
     } else {
       for (const row of this.oppRows) {
-        const n = row.Start > 0 ? row.Remaining : row.Total;
-        if (n > 0) out.push([row.Id, n]);
+        if (row.Start > 0) { if (row.Remaining > 0) out.push([row.Id, row.Remaining, this.countText(row.Remaining, row.Start)]); }
+        else if (row.Total > 0) out.push([row.Id, row.Total, row.Total > 1 ? `x${row.Total}` : "seen"]);
       }
     }
     return out;

@@ -33,19 +33,24 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
     return box.unbox();
   }
 
-  function cardList(cards: [string, number][]): any {
+  // fake net uid -> the label shown in the row's count (CardListItem.SetData is hooked below)
+  const labels = new Map<number, string>();
+
+  function cardList(cards: [string, number, string][]): any {
+    labels.clear();
     const list = listClass.alloc();
     list.method(".ctor", 0).invoke();
     const gm = gameManager.method("get_Instance").invoke();
     const getCard = gm.method("GetCard").overload("System.Int32");
     let fake = FakeUidBase;
-    for (const [id, copies] of cards) {
+    for (const [id, copies, label] of cards) {
       const card = getCard.invoke(Number(id));
       if (isNull(card)) continue;
       for (let i = 0; i < copies; i++) {
         const cc = clientCard.alloc();
         cc.method(".ctor").overload("SPTESL.Card").invoke(card);
         cc.method("set_NetUid").invoke(boxed(netUidClass, "Id", ++fake));
+        labels.set(fake, label);
         list.method("Add").invoke(cc);
       }
     }
@@ -107,6 +112,30 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
     }
     builtFor = key;
     p.log("window: buttons added");
+  }
+
+  // the row's count: "left/total" like the PC instead of the game's plain count; single copies keep the game's look
+  const item = klass("SPTESL.CardListItem");
+  const setData = item.methods.find((m: any) => m.name === "SetData" && m.parameterCount === 1);
+  if (setData && !setData.virtualAddress.isNull()) {
+    const attach = p.hookAttach ?? ((target: any, callbacks: any) => Interceptor.attach(target, callbacks));
+    attach(setData.virtualAddress, {
+      onEnter(args: any) { (this as any).item = args[0]; },
+      onLeave() {
+        if (labels.size === 0) return;
+        try {
+          const row = new Il2Cpp.Object((this as any).item);
+          const cc = row.field("Data").value.field("ClientCard").value;
+          if (isNull(cc)) return;
+          const label = labels.get(Number(cc.method("get_NetUid").invoke().field("Id").value));
+          if (label === undefined || label === "") return;
+          const count = row.field("_count").value;
+          if (!isNull(count)) count.method("set_text").invoke(Il2Cpp.string(label));
+          const box = row.field("_countContainer").value;
+          if (!isNull(box)) box.method("SetActive").invoke(true);
+        } catch (e) { fail("count", e); }
+      },
+    });
   }
 
   p.log("window: on");

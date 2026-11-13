@@ -7,7 +7,17 @@ import type { TeslPort } from "./port";
 
 const EXTERNAL = "/sdcard/Android/data/com.bethsoft.theelderscrollslegends/files";
 
-export function startRecorder(p: TeslPort): void {
+export interface MatchDeck { id: string; name: string; cards: Map<string, number> }
+export interface QueueEvent {
+  translator: string;          // a new LogMessageTranslator instance = a new match stream
+  bytes: Uint8Array;           // the HistoryQueue as protobuf (decode with core/proto)
+  handle: string;              // the queue object's address (spots a reconnect's past history)
+  pastHandle: () => string;    // FullGameState.HistoryQueue in this queue, if any (ask only when the queue has a full state)
+  local: number;
+  deck: () => MatchDeck | null;
+}
+
+export function startRecorder(p: TeslPort, onQueue?: (e: QueueEvent) => void): void {
   const image = p.img ?? Il2Cpp.domain.assembly("Assembly-CSharp").image;
   const klass = (name: string) => (p.cls ? p.cls(image, name) : image.class(name));
   const translator = klass("SPTESL.LogMessageTranslator");
@@ -22,7 +32,7 @@ export function startRecorder(p: TeslPort): void {
 
   const dir = `${externalDir(p)}/rdt/replays`;
   mkdirs(dir);
-  let source = "", out: File | null = null, header = "", failed = false, lastStamp = "", sameStamp = 0;
+  let source = "", out: File | null = null, header = "", failed = false, liveFailed = false, lastStamp = "", sameStamp = 0;
 
   function serialize(queue: any): ArrayBuffer {
     const size = Number(queue.method("CalculateSize").invoke());
@@ -119,6 +129,13 @@ export function startRecorder(p: TeslPort): void {
       inventory.field("_codeToHashCached").value = null;
     }
     const codes = inventory.method("get_HashToCodeLookup").invoke();
+    const counts = deckCounts(inventory, deck);
+    return deckCode(counts, h => (codes.method("ContainsKey").invoke(h) ? String(codes.method("get_Item").invoke(h).content) : undefined));
+  }
+
+  // The deck's copies per base card (alternate arts folded into their base), from the inventory.
+  function deckCounts(inventory: any, deck: any): Map<number, number> {
+    const types = inventory.method("get_CardTypeLookup").invoke();
     const cards = deck.field("cards").value;
     const counts = new Map<number, number>();
     const n = Number(cards.method("get_Count").invoke());
@@ -128,17 +145,51 @@ export function startRecorder(p: TeslPort): void {
       const copies = Number(card.field("numRegular").value) + Number(card.field("numPremium").value);
       if (copies <= 0) continue;
       let base = hash;
-      if (types.method("ContainsKey").invoke(hash)) {
+      if (!isNull(types) && types.method("ContainsKey").invoke(hash)) {
         const alt = Number(types.method("get_Item").invoke(hash).field("AlternateOfCardTypeHash").value);
         if (alt) base = alt;
       }
       counts.set(base, (counts.get(base) ?? 0) + copies);
     }
-    return deckCode(counts, h => (codes.method("ContainsKey").invoke(h) ? String(codes.method("get_Item").invoke(h).content) : undefined));
+    return counts;
   }
 
-  function record(self: any, queue: any) {
-    if (failed || isSpectating()) return;
+  // The match deck for the live tracker: id, name and copies, or null while the game has not loaded it.
+  function matchDeck(): MatchDeck | null {
+    const id = matchDeckId();
+    if (id === "0") return null;
+    try {
+      const inventory = services.method("get_Instance").invoke().field("Inventory").value;
+      const decks = inventory.method("get_InventoryDescription").invoke().field("decks").value;
+      const count = Number(decks.method("get_Count").invoke());
+      for (let i = 0; i < count; i++) {
+        const deck = decks.method("get_Item").invoke(i);
+        if (String(deck.field("id").value) !== id) continue;
+        const cards = new Map<string, number>();
+        for (const [hash, n] of deckCounts(inventory, deck)) cards.set(String(hash), n);
+        return { id, name: deckInfo(id).name, cards };
+      }
+    } catch (_) { /* not loaded yet */ }
+    return null;
+  }
+
+  // FullGameState.HistoryQueue inside a queue (a reconnect's past history, which then comes through AddHistoryQueue)
+  function pastHistoryHandle(queue: any): string {
+    try {
+      const items = queue.method("get_Queue").invoke();
+      const n = Number(items.method("get_Count").invoke());
+      for (let i = 0; i < n; i++) {
+        const state = items.method("get_Item").invoke(i).method("get_FullGameState").invoke();
+        if (isNull(state)) continue;
+        const past = state.method("get_HistoryQueue").invoke();
+        if (!isNull(past)) return past.handle.toString();
+      }
+    } catch (_) { /* none */ }
+    return "";
+  }
+
+  function record(self: any, queue: any): Uint8Array | null {
+    if (failed || isSpectating()) return null;
     const key = self.handle.toString();
     if (key !== source) {
       close();
@@ -152,7 +203,9 @@ export function startRecorder(p: TeslPort): void {
       p.log(`record: ${path.slice(path.lastIndexOf("/") + 1)}`);
     }
     writeHeader();
-    write(ChunkQueue, new Uint8Array(serialize(queue)));
+    const bytes = new Uint8Array(serialize(queue));
+    write(ChunkQueue, bytes);
+    return bytes;
   }
 
   function close() { if (out) { try { out.close(); } catch (_) { /* already closed */ } out = null; } }
@@ -160,8 +213,17 @@ export function startRecorder(p: TeslPort): void {
   const attach = p.hookAttach ?? ((target: any, callbacks: any) => Interceptor.attach(target, callbacks));
   attach(add.virtualAddress, {
     onEnter(args: any) {
-      try { record(new Il2Cpp.Object(args[0]), new Il2Cpp.Object(args[1])); }
+      const self = new Il2Cpp.Object(args[0]), queue = new Il2Cpp.Object(args[1]);
+      let bytes: Uint8Array | null = null;
+      try { bytes = record(self, queue); }
       catch (error) { failed = true; close(); p.log(`record failed, off until restart: ${error}`); }
+      if (!onQueue || liveFailed) return;
+      try {
+        if (isSpectating()) return;
+        if (!bytes) bytes = new Uint8Array(serialize(queue));
+        onQueue({ translator: self.handle.toString(), bytes, handle: queue.handle.toString(), pastHandle: () => pastHistoryHandle(queue),
+          local: Number(localPlayerUid()), deck: matchDeck });
+      } catch (error) { liveFailed = true; p.log(`tracking failed, off until restart: ${(error as any)?.stack ?? error}`); }
     },
   });
   p.log(`record: on, ${dir}`);
@@ -174,7 +236,7 @@ function stamp(): string {
   return `${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}-${two(d.getHours())}${two(d.getMinutes())}${two(d.getSeconds())}`;
 }
 
-function externalDir(p: TeslPort): string {
+export function externalDir(p: TeslPort): string {
   try {
     const path = p.ucls!("UnityEngine.Application").method("get_persistentDataPath").invoke();
     if (path?.content) return String(path.content);

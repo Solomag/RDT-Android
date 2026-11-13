@@ -12,28 +12,41 @@ export type CardDb = Record<string, CardRecord>;
 export interface CardMeta { BaseId: string; Name: string; Color: string; Cost: number; Category: number; Unique: boolean; Prophecy: boolean; Avatar: boolean }
 export interface CardInfo { Name: string; Text: string; Avatar: boolean; Cost: number; Colors: string; Type: string }
 
-export class Cards {
-  private codeToId = new Map<string, string>();
-  constructor(readonly db: CardDb) {
-    // the game's code table maps a code to the base card; alternates share their base's code
-    for (const c of Object.values(db)) {
-      if (!c.exportCode || !c.inInventory) continue;
-      if (!this.codeToId.has(c.exportCode) || c.id === c.baseId) this.codeToId.set(c.exportCode, c.id);
-    }
+// Where card records come from: the PC's cards.json in Node, the live game (frida/cardsource.ts) on the phone.
+export interface CardSource {
+  get(id: string): CardRecord | undefined;
+  idOfCode(code: string): string | undefined;   // deck code (two letters) -> card id
+}
+
+export function dbSource(db: CardDb): CardSource {
+  // the game's code table maps a code to the base card; alternates share their base's code
+  const codeToId = new Map<string, string>();
+  for (const c of Object.values(db)) {
+    if (!c.exportCode || !c.inInventory) continue;
+    if (!codeToId.has(c.exportCode) || c.id === c.baseId) codeToId.set(c.exportCode, c.id);
   }
+  return { get: id => db[id], idOfCode: code => codeToId.get(code) };
+}
+
+export class Cards {
+  private src: CardSource;
+  constructor(source: CardDb | CardSource) {
+    this.src = typeof (source as CardSource).get === "function" && typeof (source as CardSource).idOfCode === "function" ? source as CardSource : dbSource(source as CardDb);
+  }
+  private rec(id: string): CardRecord | undefined { return this.src.get(id); }
 
   // GameData.MetaOf: inventory cards only, with the base card's data
   meta(id: string): CardMeta | null {
-    const c = this.db[id];
+    const c = this.rec(id);
     if (!c || !c.inInventory) return null;
-    const b = this.db[c.baseId] ?? c;
+    const b = this.rec(c.baseId) ?? c;
     return { BaseId: c.baseId, Name: b.name ?? b.label ?? "", Color: b.color ?? "", Cost: b.cost ?? -1, Category: b.category ?? 1,
       Unique: !!b.unique, Prophecy: !!b.prophecy, Avatar: !!b.avatar };
   }
 
   // GameData.InfoOf: the game's card data (tokens and bot cards too)
   info(id: string): CardInfo | null {
-    const c = this.db[id];
+    const c = this.rec(id);
     if (!c) return null;
     return { Name: c.infoName ?? "", Text: c.text ?? "", Avatar: !!c.infoAvatar, Cost: c.infoCost ?? 0, Colors: c.colors ?? "", Type: c.type ?? "" };
   }
@@ -44,18 +57,18 @@ export class Cards {
   label(key: string): string {
     const m = this.meta(key);
     if (m && m.Name.length > 0) return m.Name;
-    const c = this.db[key];
+    const c = this.rec(key);
     return c?.label || c?.infoName || key;
   }
 
   baseAttribute(id: string, name: "ManaCost" | "Attack" | "MaxHealth"): number {
-    const c = this.db[id];
+    const c = this.rec(id);
     if (!c) return -1;
     const v = name === "ManaCost" ? c.baseManaCost : name === "Attack" ? c.baseAttack : c.baseMaxHealth;
     return v ?? -1;
   }
 
-  baseFlag(id: string, keyword: string): boolean { return !!this.db[id]?.baseFlags?.includes(keyword); }
+  baseFlag(id: string, keyword: string): boolean { return !!this.rec(id)?.baseFlags?.includes(keyword); }
 
   // GameData.DecodeDeckCode: base card -> copies, or null; unknown codes are skipped
   decodeDeckCode(text: string): { cards: Map<string, number>; name: string; unknown: number } | null {
@@ -72,7 +85,7 @@ export class Cards {
         if (pos + 1 >= code.length) return null;
         const key = code.substr(pos, 2);
         pos += 2;
-        let id = this.codeToId.get(key);
+        let id = this.src.idOfCode(key);
         if (!id) { unknown += copies; continue; }
         id = this.meta(id)?.BaseId ?? id;
         cards.set(id, (cards.get(id) ?? 0) + copies);

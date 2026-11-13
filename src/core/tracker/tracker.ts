@@ -124,6 +124,11 @@ export class Tracker {
   // snapshots
   private lastSnapshot: Map<string, string>[] = [new Map(), new Map()];
 
+  setLocal(local: number) { if (local > 0) this.local = local; }
+
+  // a full state in this queue pointed at a past history (the live adapter compares the Il2Cpp objects instead)
+  get expectsPastHistory() { return this.pastHistoryQueue != null; }
+
   constructor(private env: TrackerEnv, private local: number) {
     this.cards = env.cards;
     this.settings = { showLeft: false, countLeftOnly: false, artVersions: false, ...(env.settings ?? {}) };
@@ -246,7 +251,9 @@ export class Tracker {
     this.oppRows = [];
   }
 
-  processQueue(queue: any) {
+  // isPast: the live adapter's verdict that this queue is the reconnect's past history (same object as the full state's
+  // HistoryQueue); without it the object identity decides, which a replay never matches (like the PC replay).
+  processQueue(queue: any, isPast?: boolean) {
     const local = this.local;
     if (local <= 0) { this.log("Events: local player id unknown"); return; }
     this.queueStartCount = this.serverDeckCount;
@@ -255,7 +262,7 @@ export class Tracker {
     this.queueTrace = [];
     this.diedToDiscard.clear();
     this.diedToDeathrattle.clear();
-    this.replayingPast = this.pastHistoryQueue != null && queue === this.pastHistoryQueue;
+    this.replayingPast = isPast ?? (this.pastHistoryQueue != null && queue === this.pastHistoryQueue);
     if (this.replayingPast) {
       this.pastHistoryQueue = null;
       this.log("Events: history before the reconnect, already in the game state (own deck not recounted)");

@@ -19,5 +19,7 @@ console.log(`built build/rdt.js (${Buffer.byteLength(code)} bytes, sha256 ${sha2
 
 if (process.argv.includes("--node")) {
   await build({ entryPoints: ["src/core/index.ts"], bundle: true, format: "esm", platform: "node", target: "node20", outfile: "build/core.mjs" });
-  console.log("built build/core.mjs");
+  // the phone's live path, for the Node test that feeds it recorded queues (globals like File come from the test)
+  await build({ entryPoints: ["src/frida/live.ts"], bundle: true, format: "esm", platform: "node", target: "node20", outfile: "build/live.mjs" });
+  console.log("built build/core.mjs, build/live.mjs");
 }

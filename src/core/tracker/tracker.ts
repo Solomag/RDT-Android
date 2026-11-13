@@ -124,6 +124,9 @@ export class Tracker {
   // snapshots
   private lastSnapshot: Map<string, string>[] = [new Map(), new Map()];
 
+  // the window settings can change during a match (the phone's settings panel)
+  setSettings(s: Partial<TrackerSettings>) { this.settings = { ...this.settings, ...s }; }
+
   setLocal(local: number) { if (local > 0) this.local = local; }
 
   // a full state in this queue pointed at a past history (the live adapter compares the Il2Cpp objects instead)

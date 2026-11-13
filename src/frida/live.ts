@@ -32,7 +32,7 @@ export function startLive(p: TeslPort, logDir: string, source?: CardSource, make
 
   function newMatch(e: QueueEvent) {
     stream = e.translator;
-    tracker = new Tracker({ cards, log: write, bots: bots?.() }, e.local);
+    tracker = new Tracker({ cards, log: write, bots: bots?.(), settings: { countLeftOnly: p.settings?.get("rdt.countLeftOnly") === true } }, e.local);
     pending = [];
     pastHandle = "";
     write("Events: new match stream");

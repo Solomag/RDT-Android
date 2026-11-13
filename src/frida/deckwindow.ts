@@ -121,16 +121,54 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
   // a button the size of a finger: dark plate, gold text. Placed from the top centre (the match UI is wider than the
   // screen, so the right edge is off-screen), in the empty board above the card list, left of the deck and graveyard:
   // nothing the game opens covers it, so a second tap reaches it
-  function button(name: string, parent: any, text: string, x: number, action: () => void) {
+  function button(name: string, parent: any, text: string, x: number, action: () => void, y = -160, width = 150, size = 30): { go: any; text: any } {
     const go = ui.uiNew(name, parent);
-    ui.uiPlace(go, 0.5, 1, 0.5, 0.5, x, -160, 150, 64);
+    ui.uiPlace(go, 0.5, 1, 0.5, 0.5, x, y, width, 64);
     const bg = ui.uiAdd(go, "UnityEngine.UI.Image");
     bg.method("set_color").invoke(color(0.08, 0.07, 0.06, 0.85));
     const label = ui.uiNew("Label", go.method("get_transform").invoke());
     ui.uiStretch(ui.uiRect(label));
-    const tmp = ui.uiText(label, text, 30);
+    const tmp = ui.uiText(label, text, size);
     tmp.method("set_color").invoke(color(1, 0.82, 0.35, 1));
     ui.uiButton(go, bg, () => { try { action(); } catch (e) { fail("open", e); } });
+    return { go, text: tmp };
+  }
+
+  // ---- settings (teslPort.settings, keys "rdt.*"): a gear next to the buttons opens a small panel of toggles ----
+  const SETTINGS: { key: string; on: string; off: string; fallback: boolean }[] = [
+    { key: "rdt.countLeftOnly", on: "Count: left only", off: "Count: left / total", fallback: false },
+    { key: "rdt.oppButton", on: "Opp button: shown", off: "Opp button: hidden", fallback: true },
+  ];
+  const setting = (key: string) => {
+    const s = SETTINGS.find(x => x.key === key)!;
+    const v = p.settings?.get(key);
+    return typeof v === "boolean" ? v : s.fallback;
+  };
+  let oppButton: any = null, panel: any = null;
+
+  function applySettings() {
+    current()?.setSettings({ countLeftOnly: setting("rdt.countLeftOnly") });
+    if (!isNull(oppButton)) oppButton.method("SetActive").invoke(setting("rdt.oppButton"));
+    shown = ""; // labels changed: an open list redraws
+    if (openSide) { refreshDue = true; p.frameGate!("rdt window refresh", guarded); }
+  }
+
+  function buildPanel(parent: any) {
+    panel = ui.uiNew("RdtSettings", parent);
+    ui.uiPlace(panel, 0.5, 1, 0.5, 1, 470, -200, 330, 16 + SETTINGS.length * 72);
+    ui.uiAdd(panel, "UnityEngine.UI.Image").method("set_color").invoke(color(0.05, 0.05, 0.05, 0.92));
+    const inside = panel.method("get_transform").invoke();
+    SETTINGS.forEach((s, i) => {
+      const b = button(`RdtSetting${i}`, inside, "", 0, () => {
+        p.settings?.set(s.key, !setting(s.key));
+        b.text.method("set_text").invoke(Il2Cpp.string(setting(s.key) ? s.on : s.off));
+        applySettings();
+      }, -44 - i * 72, 310, 24);
+      // inside the panel: anchored to its top centre
+      ui.uiPlace(b.go, 0.5, 1, 0.5, 0.5, 0, -44 - i * 72, 310, 64);
+      b.text.method("set_text").invoke(Il2Cpp.string(setting(s.key) ? s.on : s.off));
+    });
+    panel.method("SetActive").invoke(false);
   }
 
   function color(r: number, g: number, b: number, a: number): any {
@@ -152,8 +190,11 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
     const parent = matchUi.method("get_transform").invoke();
     openSide = null;
     button("RdtDeckButton", parent, "Deck", 330, () => open("deck"));
-    button("RdtOppButton", parent, "Opp", 490, () => open("opp"));
-    for (const name of ["RdtDeckButton", "RdtOppButton"]) {
+    oppButton = button("RdtOppButton", parent, "Opp", 490, () => open("opp")).go;
+    button("RdtGearButton", parent, "⚙", 610, () => { if (!isNull(panel)) panel.method("SetActive").invoke(!panel.method("get_activeSelf").invoke()); }, -160, 110, 30);
+    try { buildPanel(parent); } catch (e) { fail("settings", e); }
+    applySettings();
+    for (const name of ["RdtDeckButton", "RdtOppButton", "RdtGearButton", "RdtSettings"]) {
       const t = parent.method("Find", 1).invoke(Il2Cpp.string(name));
       if (!isNull(t)) t.method("SetAsLastSibling").invoke();
     }

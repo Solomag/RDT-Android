@@ -81,10 +81,13 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
     const active = matchUi.method("GetCardListPickerActive").invoke() === true;
     if (active) {
       matchUi.method("HideAndCleanupCardListPicker").invoke();
+      try { placePicker(false); } catch (e) { fail("list place", e); }
       if (openSide === side) { openSide = null; return; }
     }
     const cards = t.windowCards(side);
-    board.method("ToggleGenericCardPicker").invoke(cardList(cards, t), boxed(pickerType, "value__", PickerCustomUI));
+    ourCall = true;
+    try { board.method("ToggleGenericCardPicker").invoke(cardList(cards, t), boxed(pickerType, "value__", PickerCustomUI)); } finally { ourCall = false; }
+    try { placePicker(true); } catch (e) { fail("list place", e); }
     openSide = side;
     shown = JSON.stringify(cards);
   }
@@ -100,10 +103,10 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
     const live = current();
     if (!live || live.gameEnded) { openSide = null; return; }
     if (Date.now() < settleAt) { refreshDue = true; p.frameGate!("rdt window refresh", guarded); return; }
-    if (matchUi.method("GetCardListPickerActive").invoke() !== true) { openSide = null; return; } // closed with its X
+    if (matchUi.method("GetCardListPickerActive").invoke() !== true) { openSide = null; try { placePicker(false); } catch (_) { /* next open */ } return; } // closed with its X
     // the game opened its own list over ours (a graveyard, a choice): not ours to refresh any more
     const type = matchUi.method("GetCardListPickerType").invoke();
-    if (Number(typeof type === "number" ? type : type?.field?.("value__")?.value) !== PickerCustomUI) { openSide = null; return; }
+    if (Number(typeof type === "number" ? type : type?.field?.("value__")?.value) !== PickerCustomUI) { openSide = null; try { placePicker(false); } catch (_) { /* next open */ } return; }
     const t = current();
     if (!t) return;
     const cards = t.windowCards(openSide);
@@ -112,7 +115,9 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
     shown = key;
     t.log(`Window: refresh ${openSide} (${cards.length} rows)`);
     matchUi.method("HideAndCleanupCardListPicker").invoke();
-    board.method("ToggleGenericCardPicker").invoke(cardList(cards, t), boxed(pickerType, "value__", PickerCustomUI));
+    ourCall = true;
+    try { board.method("ToggleGenericCardPicker").invoke(cardList(cards, t), boxed(pickerType, "value__", PickerCustomUI)); } finally { ourCall = false; }
+    try { placePicker(true); } catch (e) { fail("list place", e); }
     t.log("Window: refresh done");
   }
   const guarded = () => { try { refresh(); } catch (e) { refreshDue = false; fail("refresh", e); } };
@@ -144,20 +149,47 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
     return c.unbox();
   }
 
+  // The game's list panel spans the right-hand icon column, so with it open the deck icons can't be tapped (a second tap
+  // couldn't close it, the other icon couldn't switch). Our lists sit further left: the panel's right edge moves left of
+  // the column (about 260 screen px, in canvas units by the root canvas's scale). The original position is kept and put
+  // back before the game opens its own lists, which then look as they always did.
   const canvasClass = p.ucls!("UnityEngine.Canvas");
-  function aboveList(go: any) {
-    const picker = matchUi.field("_cardListPicker").value;
-    let order = 0;
-    if (!isNull(picker)) {
-      const pc = picker.method("GetComponentInParent", 1).overload("System.Type").invoke(canvasClass.type.object);
-      if (!isNull(pc)) order = Number(pc.method("get_sortingOrder").invoke());
+  const ShiftPx = 260;
+  let pickerRect: any = null, pickerX = NaN, ourCall = false;
+
+  // the game filling the list for itself (graveyards, choices): put the panel back where the game keeps it
+  {
+    const setData = klass("SPTESL.MatchUI").methods.find((m: any) => m.name === "SetCardListPickerData" && m.parameterCount === 6);
+    if (setData && !setData.virtualAddress.isNull()) {
+      const attach = p.hookAttach ?? ((target: any, callbacks: any) => Interceptor.attach(target, callbacks));
+      attach(setData.virtualAddress, {
+        onEnter() { if (!ourCall && !isNull(pickerRect)) { openSide = null; (this as any).restore = true; } },
+        onLeave() { if ((this as any).restore) try { placePicker(false); } catch (e) { fail("list place", e); } },
+      });
     }
-    let canvas = component(go, canvasClass);
-    if (isNull(canvas)) canvas = go.method("AddComponent").overload("System.Type").invoke(canvasClass.type.object);
-    canvas.method("set_overrideSorting").invoke(true);
-    canvas.method("set_sortingOrder").invoke(order + 1);
-    const raycaster = p.ucls!("UnityEngine.UI.GraphicRaycaster");
-    if (isNull(component(go, raycaster))) go.method("AddComponent").overload("System.Type").invoke(raycaster.type.object);
+  }
+
+  function pickerTransform(): any {
+    if (!isNull(pickerRect)) return pickerRect;
+    const picker = matchUi.field("_cardListPicker").value;
+    if (isNull(picker)) return null;
+    pickerRect = picker.method("get_transform").invoke();
+    pickerX = Number(pickerRect.method("get_anchoredPosition").invoke().field("x").value);
+    return pickerRect;
+  }
+
+  function placePicker(ours: boolean) {
+    const rect = pickerTransform();
+    if (isNull(rect)) return;
+    let shift = 0;
+    if (ours) {
+      const canvas = rect.method("GetComponentInParent", 1).overload("System.Type").invoke(canvasClass.type.object);
+      const scale = isNull(canvas) ? 1 : Number(canvas.method("get_rootCanvas").invoke().method("get_scaleFactor").invoke()) || 1;
+      shift = ShiftPx / scale;
+    }
+    const pos = rect.method("get_anchoredPosition").invoke();
+    pos.field("x").value = pickerX - shift;
+    rect.method("set_anchoredPosition").invoke(pos);
   }
 
   function deckButton(panel: any, side: "deck" | "opp") {
@@ -173,9 +205,6 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
       button.method("set_targetGraphic").invoke(image);
     }
     button.method("set_interactable").invoke(true);
-    // the open list spans the right-hand icon column: the icon gets its own canvas one step above the list's, so it
-    // stays visible and tappable over it (a second tap closes, the other icon switches)
-    try { aboveList(go); } catch (e) { fail("deck button order", e); }
     const key = go.handle.toString();
     const click = Il2Cpp.delegate(actionClass, () => {
       if (gameWants.get(key)) return; // the game is choosing from the deck: its button
@@ -196,6 +225,7 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
     if (isNull(matchUi)) matchUi = board.field("MatchUI_PC").value;
     if (isNull(matchUi)) { p.log("window: no match UI"); return; }
     openSide = null;
+    pickerRect = null; pickerX = NaN;
     const mine = deckButton(matchUi.field("_myInfoPanel").value, "deck");
     const theirs = deckButton(matchUi.field("_urInfoPanel").value, "opp");
     applySettings();

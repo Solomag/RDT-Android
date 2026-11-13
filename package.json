@@ -1,0 +1,14 @@
+{
+  "name": "rdt-android",
+  "private": true,
+  "description": "Reborn Deck Tracker module for the TESL Reborn Android port (Frida, frida-il2cpp-bridge)",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "test": "node tools/build.mjs --node && node --test tests/*.test.mjs",
+    "keygen": "node tools/keygen.mjs",
+    "release": "node tools/release.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}

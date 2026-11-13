@@ -1,0 +1,7 @@
+node_modules/
+build/
+# private signing key: never in the repo (tools/keygen.mjs writes it outside)
+*.pem
+*.key
+# phone recordings are checked for personal data before they go into tests/fixtures
+recordings/

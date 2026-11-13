@@ -127,6 +127,13 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
   // (TooltipTrigger3D.Fire), the module opens (or closes) that pile's list next to it.
   const pileSide = new Map<string, "deck" | "opp">();
 
+  function strings(list: any): string[] {
+    if (isNull(list)) return [];
+    const out: string[] = [], n = Number(list.method("get_Count").invoke());
+    for (let i = 0; i < n; i++) { const v = list.method("get_Item").invoke(i); out.push(isNull(v) ? "" : String(v.content ?? "")); }
+    return out;
+  }
+
   function objectName(o: any): string {
     try {
       const go = o.method("get_gameObject").invoke();
@@ -171,13 +178,24 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
   {
     const attach = p.hookAttach ?? ((target: any, callbacks: any) => Interceptor.attach(target, callbacks));
     attach(mouseDown.virtualAddress, {
-      onEnter(args: any) {
-        const side = pileSide.get(args[0].toString());
-        // diagnostics while the pile mapping is being settled: which trigger a tap reached
-        try { current()?.log(`Window: tooltip of ${objectName(new Il2Cpp.Object(args[0]))} ${args[0]} -> ${side ?? "ignored"}`); } catch (_) { /* log only */ }
+      onEnter(args: any) { (this as any).trigger = args[0]; },
+      // after Fire the trigger's settings hold what the game is showing: the side's trigger serves both the pile
+      // ("Cards in Your Deck - N / …") and the magicka gem ("Turn Count / … Magicka"), so the text decides
+      onLeave() {
+        const handle = (this as any).trigger;
+        const side = pileSide.get(handle.toString());
         if (!side) return;
-        // the game is in the middle of its own input: open on the next frame, outside this call. The pile's count
-        // tooltip stays: hiding it (UnFire, 0.5.2) also stopped our list from showing.
+        let keys: string[] = [], texts: string[] = [];
+        try {
+          const settings = new Il2Cpp.Object(handle).field("TooltipSettings").value;
+          keys = strings(settings.field("locKeys").value);
+          texts = strings(settings.field("messages").value);
+        } catch (e) { fail("tooltip text", e); }
+        const all = [...keys, ...texts].join(" | ");
+        const deck = /deck/i.test(all) && !/magicka|turn/i.test(keys.join(" "));
+        try { current()?.log(`Window: tooltip of ${objectName(new Il2Cpp.Object(handle))} -> ${side} [${all.slice(0, 160)}] ${deck ? "opens" : "ignored"}`); } catch (_) { /* log only */ }
+        if (!deck) return;
+        // open on the next frame, outside the game's input. The tooltip stays (hiding it, 0.5.2, stopped the list).
         p.frameGate!("rdt deck pile", () => { try { open(side); } catch (e) { fail("open", e); } });
       },
     });

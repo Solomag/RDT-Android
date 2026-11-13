@@ -1,8 +1,8 @@
 {
-  "revision": 4,
+  "revision": 5,
   "minCore": 296,
-  "bytes": 111119,
-  "sha256": "f21d35d37585ddbdd45838dce028d5e508d2d7900ea5cca070aa6176282b8377",
-  "sig": "3985b6a7a5be7415370cccecb704ad6537ac02433b8bcf95cb7935e6ba9cf3321d22682f8e07bee13c632e257f7c2c2c551aa37a4d88ca146c8bd72b48529e0b",
-  "url": "https://raw.githubusercontent.com/Solomag/RDT-Android/main/release/payloads/f21d35d37585ddbdd45838dce028d5e508d2d7900ea5cca070aa6176282b8377.js"
+  "bytes": 112929,
+  "sha256": "544fc15b42cbe45c7a818cac43d49c4ee08b48e86eac339a05fdd50786f92b16",
+  "sig": "a0ef7f3ab1e074ca0a98392c6ae1edc1dc064944d6de2d46fc07d582b902d0a669e6395ee0d2126304c7bbe09ead609f759f11c63bc5ffb016944114a589970b",
+  "url": "https://raw.githubusercontent.com/Solomag/RDT-Android/main/release/payloads/544fc15b42cbe45c7a818cac43d49c4ee08b48e86eac339a05fdd50786f92b16.js"
 }

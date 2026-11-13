@@ -14,7 +14,7 @@ const isNull = (o: any) => o == null || (o.handle && o.handle.isNull());
 export function startDeckWindow(p: TeslPort, current: () => Tracker | null): void {
   const image = p.img ?? Il2Cpp.domain.assembly("Assembly-CSharp").image;
   const klass = (name: string) => (p.cls ? p.cls(image, name) : image.class(name));
-  const conductor = klass("SPTESL.BoardConductor");
+  const input = klass("SPTESL.BoardInputController"); // HandleOnDeckIconPressed lives here; it holds the BoardConductor
   const panel = klass("PlayerInfoPanel");
   const clientCard = klass("SPTESL.ClientCard");
   const netUidClass = klass("SPTESL.CardNetUid");
@@ -76,7 +76,7 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): voi
       try { makeTappable(new Il2Cpp.Object((this as any).panel)); } catch (e) { fail("deck button", e); }
     },
   });
-  attach(method(conductor, "HandleOnDeckIconPressed", 1).virtualAddress, {
+  attach(method(input, "HandleOnDeckIconPressed", 1).virtualAddress, {
     onEnter(args: any) {
       if (gameWants) return; // the game is choosing from the deck: its button
       try {
@@ -84,7 +84,8 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): voi
         const owner = args[1].toInt32();
         if (!t) { p.log("window: no tracked deck yet"); return; }
         const cards = t.windowCards(owner === OwnerPlayer ? "deck" : "opp");
-        const board = new Il2Cpp.Object(args[0]);
+        const board = new Il2Cpp.Object(args[0]).field("_boardConductor").value;
+        if (isNull(board)) { p.log("window: no board"); return; }
         board.method("ToggleGenericCardPicker").invoke(cardList(cards), boxed(pickerType, "value__", PickerCustomUI));
       } catch (e) { fail("open", e); }
     },

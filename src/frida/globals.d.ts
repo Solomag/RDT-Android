@@ -5,4 +5,5 @@ declare const Interceptor: any;
 declare const Process: any;
 declare const NativeFunction: any;
 declare const Memory: any;
+declare function ptr(v: number | string): any;
 declare class File { constructor(path: string, mode: string); write(data: ArrayBuffer | string): void; flush(): void; close(): void; }

@@ -9,8 +9,10 @@ const FakeUidBase = 900000;          // net uids of the shown cards (as on PC)
 const PickerCustomUI = 3;            // MatchUI.CardListPickerType.CustomUI
 
 const isNull = (o: any) => o == null || (o.handle && o.handle.isNull());
+const NULL_LIST = NULL_OBJECT();
+function NULL_OBJECT(): any { try { return new Il2Cpp.Object(ptr(0)); } catch (_) { return null; } }
 
-export interface DeckWindow { onMatch: () => void }
+export interface DeckWindow { onMatch: () => void; onUpdate: () => void }
 
 export function startDeckWindow(p: TeslPort, current: () => Tracker | null): DeckWindow {
   if (!p.ui || !p.frameGate) throw Error("the port has no ui helpers");
@@ -25,6 +27,7 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
   const listClass = Il2Cpp.corlib.class("System.Collections.Generic.List`1").inflate(clientCard);
   let errors = 0, builtFor = "";
   let board: any = null, matchUi: any = null, openSide: "deck" | "opp" | null = null;
+  let shown = "", refreshDue = false;   // what the open list shows (to skip unchanged refreshes); a refresh is queued
   const fail = (what: string, e: any) => { if (errors++ < 5) p.log(`window: ${what} failed: ${e}`); };
 
   function boxed(k: any, field: string, value: number): any {
@@ -67,8 +70,28 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
       matchUi.method("HideAndCleanupCardListPicker").invoke();
       if (openSide === side) { openSide = null; return; }
     }
-    board.method("ToggleGenericCardPicker").invoke(cardList(t.windowCards(side)), boxed(pickerType, "value__", PickerCustomUI));
+    const cards = t.windowCards(side);
+    board.method("ToggleGenericCardPicker").invoke(cardList(cards), boxed(pickerType, "value__", PickerCustomUI));
     openSide = side;
+    shown = JSON.stringify(cards);
+  }
+
+  // After a tracked message: if our list is still open and its content changed, give the game's list the new cards in
+  // place (MatchUI.SetCardListPickerData, the display form the graveyard uses: no usable ids, grouped, no selection).
+  function refresh() {
+    refreshDue = false;
+    if (!openSide || isNull(matchUi)) return;
+    if (matchUi.method("GetCardListPickerActive").invoke() !== true) { openSide = null; return; } // closed with its X
+    // the game opened its own list over ours (a graveyard, a choice): not ours to refresh any more
+    const type = matchUi.method("GetCardListPickerType").invoke();
+    if (Number(typeof type === "number" ? type : type?.field?.("value__")?.value) !== PickerCustomUI) { openSide = null; return; }
+    const t = current();
+    if (!t) return;
+    const cards = t.windowCards(openSide);
+    const key = JSON.stringify(cards);
+    if (key === shown) return;
+    shown = key;
+    matchUi.method("SetCardListPickerData").invoke(cardList(cards), boxed(pickerType, "value__", PickerCustomUI), NULL_LIST, true, false, false);
   }
 
   // a button the size of a finger: dark plate, gold text. Placed from the top centre (the match UI is wider than the
@@ -141,5 +164,11 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
   p.log("window: on");
   return {
     onMatch() { p.frameGate!("rdt window", () => { try { build(); } catch (e) { fail("buttons", e); } }); },
+    // at most one refresh per frame, however many messages arrive
+    onUpdate() {
+      if (!openSide || refreshDue) return;
+      refreshDue = true;
+      p.frameGate!("rdt window refresh", () => { try { refresh(); } catch (e) { refreshDue = false; fail("refresh", e); } });
+    },
   };
 }

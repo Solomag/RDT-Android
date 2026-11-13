@@ -11,7 +11,7 @@ import type { CardSource } from "../core/tracker/cards";
 
 const TypeFullGameState = 11;
 
-export interface Live { onQueue: (e: QueueEvent) => void; current: () => Tracker | null; onDeckLoaded?: () => void }
+export interface Live { onQueue: (e: QueueEvent) => void; current: () => Tracker | null; onDeckLoaded?: () => void; onUpdate?: () => void }
 
 export function startLive(p: TeslPort, logDir: string, source?: CardSource, makeDirs?: (path: string) => void, bots?: () => BotDecks | undefined): Live {
   const cards = new Cards(source ?? gameCardSource(p, m => p.log(m)));
@@ -75,6 +75,7 @@ export function startLive(p: TeslPort, logDir: string, source?: CardSource, make
     t.publish();
     t.refreshOpponent();
     t.logWindowSnapshot(false);
+    try { live.onUpdate?.(); } catch (_) { /* the window must never stop tracking */ }
   };
   const live: Live = { onQueue, current: () => (tracker && tracker.deckRows ? tracker : null) };
   return live;

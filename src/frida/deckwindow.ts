@@ -1,6 +1,6 @@
-// The deck window on the phone. Tapping your deck pile (or the opponent's) on the board opens the game's own card list
-// (BoardConductor.ToggleGenericCardPicker, the list the graveyards open) with the tracker's cards: your deck's remaining
-// copies, or the opponent's deck / seen cards. A second tap closes it. No buttons of our own: the piles are the buttons.
+// The deck window on the phone, as on PC: the game's deck button (your panel's or the opponent's) opens the game's own card
+// list (BoardConductor.ToggleGenericCardPicker, the list the graveyards open) with the tracker's cards: your deck's
+// remaining copies, or the opponent's deck / seen cards. A second tap closes it. No buttons of our own.
 import type { Tracker } from "../core/tracker/tracker";
 import type { TeslPort } from "./port";
 
@@ -122,25 +122,49 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
     current()?.setSettings({ countLeftOnly: p.settings?.get("rdt.countLeftOnly") === true });
   }
 
-  // The deck piles on the board are the buttons, as on PC: the match UI keeps a 3D tooltip trigger per pile
-  // (MatchUI._deckCountTooltips3d: [0] yours, [1] the opponent's). When the game shows a pile's count tooltip
-  // (TooltipTrigger3D.Fire), the module opens (or closes) that pile's list next to it.
-  const pileSide = new Map<string, "deck" | "opp">();
+  // The deck buttons, as on PC (MatchTracker.NativeHud HookDeckButton): PlayerInfoPanel._deckBtn of the player's and the
+  // opponent's panel (Btn_Deck_Player / Btn_Deck_Opponent, the card icons in the right-hand column on the phone). On the
+  // phone the game only uses them as tooltip anchors: no graphic, so taps never reach them. The module gives each a
+  // transparent Image as its raycast target, keeps it interactable and adds a click that opens / closes that side's list.
+  // While the game wants the button itself (choosing from the deck: SetPlayerDeckIconInteract(true)), the click is the game's.
+  const buttonClass = p.ucls!("UnityEngine.UI.Button");
+  const imageClass = p.ucls!("UnityEngine.UI.Image");
+  const actionClass = p.ucls!("UnityEngine.Events.UnityAction");
+  const panelClass = klass("PlayerInfoPanel");
+  const gameWants = new Map<string, boolean>();   // deck button object -> the game enabled it for its own choice
+  const keep: any[] = [];                          // the click delegates live as long as the module
 
-  function strings(list: any): string[] {
-    if (isNull(list)) return [];
-    const out: string[] = [], n = Number(list.method("get_Count").invoke());
-    for (let i = 0; i < n; i++) { const v = list.method("get_Item").invoke(i); out.push(isNull(v) ? "" : String(v.content ?? "")); }
-    return out;
+  function component(go: any, k: any): any {
+    return go.method("GetComponent", 1).overload("System.Type").invoke(k.type.object);
   }
 
-  function objectName(o: any): string {
-    try {
-      const go = o.method("get_gameObject").invoke();
-      const parent = go.method("get_transform").invoke().method("get_parent").invoke();
-      const pn = isNull(parent) ? "" : String(parent.method("get_name").invoke()?.content ?? "") + "/";
-      return pn + String(go.method("get_name").invoke()?.content ?? "?");
-    } catch (_) { return "?"; }
+  function color(r: number, g: number, b: number, a: number): any {
+    const c = p.ucls!("UnityEngine.Color").alloc();
+    c.field("r").value = r; c.field("g").value = g; c.field("b").value = b; c.field("a").value = a;
+    return c.unbox();
+  }
+
+  function deckButton(panel: any, side: "deck" | "opp") {
+    if (isNull(panel)) return false;
+    const go = panel.field("_deckBtn").value;
+    if (isNull(go)) return false;
+    const button = component(go, buttonClass);
+    if (isNull(button)) return false;
+    if (isNull(component(go, imageClass))) {
+      const image = go.method("AddComponent").overload("System.Type").invoke(imageClass.type.object);
+      image.method("set_color").invoke(color(1, 1, 1, 0));
+      image.method("set_raycastTarget").invoke(true);
+      button.method("set_targetGraphic").invoke(image);
+    }
+    button.method("set_interactable").invoke(true);
+    const key = go.handle.toString();
+    const click = Il2Cpp.delegate(actionClass, () => {
+      if (gameWants.get(key)) return; // the game is choosing from the deck: its button
+      try { open(side); } catch (e) { fail("open", e); }
+    });
+    keep.push(click);
+    button.method("get_onClick").invoke().method("AddListener").invoke(click);
+    return true;
   }
 
   function build() {
@@ -153,52 +177,31 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
     if (isNull(matchUi)) matchUi = board.field("MatchUI_PC").value;
     if (isNull(matchUi)) { p.log("window: no match UI"); return; }
     openSide = null;
-    pileSide.clear();
-    const piles = matchUi.field("_deckCountTooltips3d").value;
-    const n = isNull(piles) ? 0 : Number(piles.length);
-    const names: string[] = [];
-    for (let i = 0; i < n; i++) {
-      const trigger = piles.get(i);
-      if (isNull(trigger)) { names.push(`${i}: none`); continue; }
-      names.push(`${i}: ${objectName(trigger)} ${trigger.handle}`);
-      if (i < 2) pileSide.set(trigger.handle.toString(), i === 0 ? "deck" : "opp");
-    }
-    current()?.log(`Window: deck pile triggers ${names.join("; ")}`);
+    const mine = deckButton(matchUi.field("_myInfoPanel").value, "deck");
+    const theirs = deckButton(matchUi.field("_urInfoPanel").value, "opp");
     applySettings();
     builtFor = key;
-    p.log(`window: deck piles ready (${pileSide.size})`);
+    p.log(`window: deck buttons ${mine ? "on" : "missing"} / ${theirs ? "on" : "missing"}`);
   }
 
-  const trigger3d = klass("TooltipTrigger3D");
-  // Not OnMouseDown: on touch it reaches whichever pile collider the perspective camera lines up (the magicka gems hit
-  // the pile colliders, the books often don't, a tap on the list's X re-fires the last one). Fire(bool) is the game's own
-  // verdict: it runs when the game shows that trigger's tooltip ("Cards in Your/Opponent's Deck").
-  const mouseDown = trigger3d.methods.find((m: any) => m.name === "Fire" && m.parameterCount === 1);
-  if (!mouseDown || mouseDown.virtualAddress.isNull()) throw Error("TooltipTrigger3D.Fire not found");
+  // the game enables the deck button only for its own deck choices; afterwards it stays tappable for the list
   {
-    const attach = p.hookAttach ?? ((target: any, callbacks: any) => Interceptor.attach(target, callbacks));
-    attach(mouseDown.virtualAddress, {
-      onEnter(args: any) { (this as any).trigger = args[0]; },
-      // after Fire the trigger's settings hold what the game is showing: the side's trigger serves both the pile
-      // ("Cards in Your Deck - N / …") and the magicka gem ("Turn Count / … Magicka"), so the text decides
-      onLeave() {
-        const handle = (this as any).trigger;
-        const side = pileSide.get(handle.toString());
-        if (!side) return;
-        let keys: string[] = [], texts: string[] = [];
-        try {
-          const settings = new Il2Cpp.Object(handle).field("TooltipSettings").value;
-          keys = strings(settings.field("locKeys").value);
-          texts = strings(settings.field("messages").value);
-        } catch (e) { fail("tooltip text", e); }
-        const all = [...keys, ...texts].join(" | ");
-        const deck = /deck/i.test(all) && !/magicka|turn/i.test(keys.join(" "));
-        try { current()?.log(`Window: tooltip of ${objectName(new Il2Cpp.Object(handle))} -> ${side} [${all.slice(0, 160)}] ${deck ? "opens" : "ignored"}`); } catch (_) { /* log only */ }
-        if (!deck) return;
-        // open on the next frame, outside the game's input. The tooltip stays (hiding it, 0.5.2, stopped the list).
-        p.frameGate!("rdt deck pile", () => { try { open(side); } catch (e) { fail("open", e); } });
-      },
-    });
+    const interact = panelClass.methods.find((m: any) => m.name === "SetPlayerDeckIconInteract" && m.parameterCount === 1);
+    if (interact && !interact.virtualAddress.isNull()) {
+      const attach = p.hookAttach ?? ((target: any, callbacks: any) => Interceptor.attach(target, callbacks));
+      attach(interact.virtualAddress, {
+        onEnter(args: any) { (this as any).panel = args[0]; (this as any).can = (args[1].toInt32() & 0xff) !== 0; },
+        onLeave() {
+          try {
+            const go = new Il2Cpp.Object((this as any).panel).field("_deckBtn").value;
+            if (isNull(go)) return;
+            gameWants.set(go.handle.toString(), (this as any).can);
+            const button = component(go, buttonClass);
+            if (!isNull(button)) button.method("set_interactable").invoke(true);
+          } catch (e) { fail("deck button state", e); }
+        },
+      });
+    }
   }
 
   // the row's count: "left/total" like the PC instead of the game's plain count; single copies keep the game's look
@@ -236,7 +239,7 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
 
   p.log("window: on");
   return {
-    onMatch() { p.frameGate!("rdt window", () => { try { build(); } catch (e) { fail("deck piles", e); } }); },
+    onMatch() { p.frameGate!("rdt window", () => { try { build(); } catch (e) { fail("deck buttons", e); } }); },
     // at most one refresh per frame, however many messages arrive
     onUpdate() {
       settleAt = Date.now() + 400; // a burst of messages (a turn change) refreshes once, after it

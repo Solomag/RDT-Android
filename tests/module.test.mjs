@@ -16,7 +16,7 @@ function fakeWorld() {
     field: f => ({ value: fields[f] }),
     method: m => ({ invoke: (...a) => methods[m](...a), overload: () => ({ invoke: (...a) => methods[m](...a) }) }),
   });
-  const deck = obj({ id: { toString: () => "77" }, displayName: { content: "Колода" } });
+  const deck = obj({ id: { toString: () => "77" }, displayName: { content: "abc-deck_name" } }, { get_DisplayName: () => ({ content: "Колода" }) });
   const decks = obj({}, { get_Count: () => 1, get_Item: () => deck });
   const klasses = {
     "SPTESL.LogMessageTranslator": { methods: [{ name: "AddHistoryQueue", parameterCount: 1, isStatic: false, virtualAddress: handle(0x1000) }] },

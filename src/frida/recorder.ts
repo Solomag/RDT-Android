@@ -68,7 +68,11 @@ export function startRecorder(p: TeslPort): void {
       const count = Number(decks.method("get_Count").invoke());
       for (let i = 0; i < count; i++) {
         const deck = decks.method("get_Item").invoke(i);
-        if (String(deck.field("id").value) === id) return String(deck.field("displayName").value?.content ?? "");
+        if (String(deck.field("id").value) !== id) continue;
+        // DisplayName localizes stock deck keys ("…-deck_name") like the PC's loadedDeckName; the raw field is the fallback.
+        let name: any = null;
+        try { name = deck.method("get_DisplayName").invoke(); } catch (_) { /* older build */ }
+        return String(name?.content ?? deck.field("displayName").value?.content ?? "");
       }
     } catch (_) { /* name is only for people reading the file */ }
     return "";

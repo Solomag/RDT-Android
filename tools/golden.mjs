@@ -13,6 +13,10 @@ const root = "tests/golden";
 if (!existsSync(root)) { console.log("no goldens (tests/golden is empty)"); process.exit(0); }
 const cardsFile = existsSync(`${root}/cards.json`) ? JSON.parse(readFileSync(`${root}/cards.json`, "utf8")) : {};
 const cards = cardsFile.cards ?? cardsFile; // PC export: { language, count, keywords, cards: { id: {...} } }
+const bots = existsSync(`${root}/bots-v1.json`) ? JSON.parse(readFileSync(`${root}/bots-v1.json`, "utf8")) : undefined;
+// the PC's window settings decide which rows a snapshot shows (native.cfg: showLeft, countLeftOnly, artVersions)
+const cfg = existsSync(`${root}/native.cfg`) ? Object.fromEntries(readFileSync(`${root}/native.cfg`, "utf8").split("\n").map(l => l.trim().split("=")).filter(p => p.length === 2)) : {};
+const settings = { showLeft: cfg.showLeft === "1", countLeftOnly: cfg.countLeftOnly === "1", artVersions: cfg.artVersions === "1" };
 const only = process.argv[2];
 let pass = 0, fail = 0;
 for (const name of readdirSync(root, { withFileTypes: true }).filter(d => d.isDirectory()).map(d => d.name).sort()) {
@@ -21,7 +25,7 @@ for (const name of readdirSync(root, { withFileTypes: true }).filter(d => d.isDi
   if (!existsSync(`${dir}/recording.rdtrec`) || !existsSync(`${dir}/expected.txt`)) continue;
   const want = normalize(readFileSync(`${dir}/expected.txt`, "utf8"));
   let got;
-  try { got = normalize(replay(decodeChunks(new Uint8Array(readFileSync(`${dir}/recording.rdtrec`))), cards, name).join("\n")); }
+  try { got = normalize(replay(decodeChunks(new Uint8Array(readFileSync(`${dir}/recording.rdtrec`))), { cards, bots, settings }, name).join("\n")); }
   catch (e) { got = [`(core threw: ${e?.stack ?? e})`]; }
   const at = want.findIndex((l, i) => l !== got[i]);
   const same = at < 0 && want.length === got.length;

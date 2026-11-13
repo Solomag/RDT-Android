@@ -5,3 +5,5 @@ export const RDT_VERSION = "0.2.3";
 export * from "./proto/decode";
 export * from "./proto/encode";
 export * from "./tracker/replay";
+export * from "./tracker/tracker";
+export * from "./tracker/cards";

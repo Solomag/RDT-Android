@@ -1,7 +1,7 @@
 // node tools/import-goldens.mjs [PC data dir]   (npm run goldens:import)
 // Copies the PC tracker's goldens into tests/golden (local only, gitignored):
 //   replays\<name>.rdtrec + replay-results\<name>.txt -> tests/golden/<name>/{recording.rdtrec, expected.txt}
-//   cards.json -> tests/golden/cards.json
+//   cards.json, bots-v1.json (bot decks), native.cfg (window settings) -> tests/golden/
 import { copyFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -20,5 +20,5 @@ for (const f of readdirSync(results).filter(f => f.endsWith(".txt"))) {
   copyFileSync(join(results, f), `tests/golden/${name}/expected.txt`);
   n++;
 }
-if (existsSync(join(pc, "cards.json"))) copyFileSync(join(pc, "cards.json"), "tests/golden/cards.json");
+for (const f of ["cards.json", "bots-v1.json", "native.cfg"]) if (existsSync(join(pc, f))) copyFileSync(join(pc, f), `tests/golden/${f}`);
 console.log(`imported ${n} goldens${existsSync("tests/golden/cards.json") ? " and cards.json" : ""}`);

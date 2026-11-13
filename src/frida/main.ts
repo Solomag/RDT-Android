@@ -2,7 +2,7 @@
 // Contract: docs/loader-contract.md. Nothing here may throw into the game.
 import { RDT_VERSION } from "../core";
 import { port } from "./port";
-import { startRecorder, externalDir } from "./recorder";
+import { startRecorder, externalDir, mkdirs } from "./recorder";
 import { startLive } from "./live";
 
 const p = port();
@@ -10,7 +10,7 @@ try {
   p.log(`rdt ${RDT_VERSION} (port ${p.version ?? "?"}, il2cpp ${typeof (globalThis as any).Il2Cpp !== "undefined" ? "ok" : "missing"})`);
   if (typeof (globalThis as any).Il2Cpp !== "undefined") {
     let live: ReturnType<typeof startLive> | undefined;
-    try { live = startLive(p, `${externalDir(p)}/rdt`); p.log("tracking: on"); }
+    try { live = startLive(p, `${externalDir(p)}/rdt`, undefined, mkdirs); p.log("tracking: on"); }
     catch (e) { p.log(`tracking: off (${e})`); }
     startRecorder(p, live);
   }

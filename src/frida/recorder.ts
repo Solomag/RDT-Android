@@ -247,7 +247,7 @@ export function externalDir(p: TeslPort): string {
   return EXTERNAL;
 }
 
-function mkdirs(path: string): void {
+export function mkdirs(path: string): void {
   const mkdir = new NativeFunction(Process.getModuleByName("libc.so").getExportByName("mkdir"), "int", ["pointer", "int"]);
   let at = "";
   for (const part of path.split("/").filter(Boolean)) { at += `/${part}`; mkdir(Memory.allocUtf8String(at), 0o775); }

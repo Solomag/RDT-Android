@@ -11,12 +11,17 @@ import type { CardSource } from "../core/tracker/cards";
 
 const TypeFullGameState = 11;
 
-export function startLive(p: TeslPort, logDir: string, source?: CardSource): (e: QueueEvent) => void {
+export function startLive(p: TeslPort, logDir: string, source?: CardSource, makeDirs?: (path: string) => void): (e: QueueEvent) => void {
   const cards = new Cards(source ?? gameCardSource(p, m => p.log(m)));
-  let log: File | null = null;
-  try { log = new File(`${logDir}/Match.log`, "a"); } catch (e) { p.log(`tracking: no Match.log (${e})`); }
+  // opened on the first line, after creating the folder (a fresh install has no rdt folder yet); retried if it fails
+  let log: File | null = null, logTries = 0;
   const write = (line: string) => {
     if (line.startsWith("CHECK:")) p.log(line);
+    if (!log && logTries < 3) {
+      logTries++;
+      try { makeDirs?.(logDir); log = new File(`${logDir}/Match.log`, "a"); }
+      catch (e) { p.log(`tracking: no Match.log (${e})`); }
+    }
     if (!log) return;
     try { log.write(`${stamp()} ${line}\n`); log.flush(); } catch (_) { /* logging must never stop tracking */ }
   };

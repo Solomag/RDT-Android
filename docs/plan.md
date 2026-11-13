@@ -1,10 +1,11 @@
 # План порта RDT на Android
 
-Статус: в работе. Текущая веха — M1 (проверка на телефоне) → M2 (2026-11-13).
+Статус: в работе. Текущая веха — M2 (запись матчей на телефоне; проверка на телефоне) (2026-11-13).
 
 **Ход работ**
 - M0: готово. Таблица методов: `C:/tr/r/docs/rdt-m0-methods.md`. AddHistoryQueue и HistoryQueue.Parser есть. `ToByteArray` вырезан, поэтому сериализация идёт через CalculateSize + CodedOutputStream(byte[]) + WriteTo + Flush. Колоды и карты лежат там же, где на ПК.
 - M1: каркас RDT-Android готов, загрузчик в порте написан (hook/32-rdt-loader.ts; не проверен на телефоне, не запушен). API `teslPort` и порядок включения описаны в `docs/loader-contract.md`. Канал ждёт публичный ключ (keygen делает пользователь). Публичный репозиторий: github.com/Solomag/RDT-Android.
+- M2: модуль 0.2.0 записывает каждый матч в `/sdcard/Android/data/com.bethsoft.theelderscrollslegends/files/rdt/replays/<время>.rdtrec` в формате ПК: ключи `local`, `deck` и `name`, `code` пока пустой. Файлы забираются с телефона по USB или adb. Проверено в Node на поддельном Il2Cpp (`tests/module.test.mjs`), на телефоне ещё не проверялось. Чистки старых записей пока нет.
 
 ## Исходные данные
 

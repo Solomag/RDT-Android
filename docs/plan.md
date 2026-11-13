@@ -1,10 +1,10 @@
 # План порта RDT на Android
 
-Статус: в работе. Текущая веха — M0/M1 (2026-11-13).
+Статус: в работе. Текущая веха — M1 (проверка на телефоне) → M2 (2026-11-13).
 
 **Ход работ**
-- M0: запрос принят сессией TESL_Reborn_Android; таблица будет в `C:/tr/r/docs/rdt-m0-methods.md` после того, как пользователь подтвердит очерёдность работ в порте.
-- M1: каркас RDT-Android готов (TS + esbuild, тесты в Node, формат `.rdtrec`, выпуск с подписью ed25519); схема загрузчика (переключатель, ed25519 над "sha256:revision", TweetNaCl verify-only, кэш, inbox, `globalThis.teslPort`) сессией порта принята, реализация за ней. Публичный репозиторий: github.com/Solomag/RDT-Android.
+- M0: готово. Таблица методов: `C:/tr/r/docs/rdt-m0-methods.md`. AddHistoryQueue и HistoryQueue.Parser есть. `ToByteArray` вырезан, поэтому сериализация идёт через CalculateSize + CodedOutputStream(byte[]) + WriteTo + Flush. Колоды и карты лежат там же, где на ПК.
+- M1: каркас RDT-Android готов, загрузчик в порте написан (hook/32-rdt-loader.ts; не проверен на телефоне, не запушен). API `teslPort` и порядок включения описаны в `docs/loader-contract.md`. Канал ждёт публичный ключ (keygen делает пользователь). Публичный репозиторий: github.com/Solomag/RDT-Android.
 
 ## Исходные данные
 

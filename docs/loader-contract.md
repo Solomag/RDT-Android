@@ -23,20 +23,20 @@ The agreement between the RDT module (this repo) and the loader in the TESL Rebo
 - Before running the module, the loader sets `globalThis.teslPort`. It then runs the module with `Script.evaluate("/rdt/rdt.js", code)` inside try/catch. Any error from the module is logged and must not break the game.
 - **The payload exports nothing.** It is a single ES2020 IIFE that starts itself at top level: it reads `globalThis.teslPort` and sets up its own hooks through the shared `Il2Cpp` global (frida-il2cpp-bridge from the core).
 - Version 1 has no hot unload: turning the toggle off takes effect on the next game start. Later the module may set `globalThis.rdt = { version, dispose() }`. If the loader finds it, it can call `dispose()` when the toggle is switched off. This is optional.
-- Inbox override for testing: if the port's inbox contains `rdt.js`, the loader runs it instead of the channel copy, skipping the signature check. This is for development only, and the inbox lives in private storage.
+- Inbox override for testing: if the port's inbox contains `rdt.js`, the loader runs it instead of the channel copy, skipping the signature check. This is for development only (see below for where the inbox is and how it is enabled).
 
-## `globalThis.teslPort`
-Only `log` is required. Everything else is optional, and the module checks for it before use (`src/frida/port.ts`):
+## `globalThis.teslPort` (as built in the port, hook/32-rdt-loader.ts)
+Types are in `src/frida/port.ts`. Only `log` is required; the module checks the others before using them.
+- `version` "2.<core revision>", `core` (number), `log(msg)` (prefix "rdt: "), `dataDir` (<private files>/rdt).
+- `settings{get,set}`: keys start with "rdt."; stored in dataDir/settings.json.
+- `frameGate(name, fn)`: runs on the main thread on the next frame. Use it for per-frame work instead of attaching to Update yourself.
+- `httpGetBytes(url) -> Promise<Uint8Array>` (BestHTTP).
+- `hookAttach`: the port's shared attach. `cls(img, "Ns.Class")`, `ucls(name)`, `call(obj, method, ...args)`, `img` (Assembly-CSharp).
+- `ui`: uiNew, uiAdd, uiRect, uiPlace, uiStretch, uiText, uiButton, uiLabeledButton.
+- `Il2Cpp` is the shared global. The module runs inside Il2Cpp.perform.
 
-```ts
-interface TeslPort {
-  version?: string;                                    // port/core version
-  log(message: string): void;                          // into the port's log
-  settings?: { get(key: string): unknown; set(key: string, value: unknown): void }; // RDT's own keys, prefix "rdt."
-  frameGate?: (name: string, fn: () => void) => void;  // run on the Unity main thread / next frame
-  httpGetBytes?: (url: string) => Promise<Uint8Array>; // later: decks/card data
-  dataDir?: string;                                    // private dir for RDT files (recordings, pools)
-}
-```
-
-The loader session publishes the final API shape after M1. This file is then updated to match.
+## Как порт включает модуль (сейчас)
+- Toggle: the file `/sdcard/Android/data/com.bethsoft.theelderscrollslegends/files/tesl-reborn-rdt.json` containing `{"enabled": true}`. An in-game toggle comes later.
+- Inbox: `tesl-reborn-inbox/rdt.js` in the same external folder. It works only when `allowLocalUpdates: true` is set in `tesl-reborn-updater.json`. It runs without a signature but still needs the marker.
+- A verified new channel revision goes to `<private files>/rdt/rdt.js` + `state.json`. It runs right away if nothing has run yet, otherwise on the next start. While the public key is empty, the loader skips the channel and logs that it did.
+- No `dispose` in v1.

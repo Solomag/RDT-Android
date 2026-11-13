@@ -32,6 +32,7 @@ export function startRecorder(p: TeslPort, onQueue?: (e: QueueEvent) => void): v
 
   const dir = `${externalDir(p)}/rdt/replays`;
   mkdirs(dir);
+  const deckInfoCache = new Map<string, { name: string; code: string }>();
   let source = "", out: File | null = null, header = "", failed = false, liveFailed = false, lastStamp = "", sameStamp = 0;
 
   function serialize(queue: any): ArrayBuffer {
@@ -52,7 +53,9 @@ export function startRecorder(p: TeslPort, onQueue?: (e: QueueEvent) => void): v
 
   function writeHeader() {
     const deck = matchDeckId();
-    const info = deck !== "0" ? deckInfo(deck) : { name: "", code: "" };
+    // the deck's name and code once per deck id (walking the inventory on every message was the main per-message cost)
+    let info = deck !== "0" ? deckInfoCache.get(deck) : { name: "", code: "" };
+    if (!info) { info = deckInfo(deck); if (info.code) deckInfoCache.set(deck, info); }
     const h = { local: localPlayerUid(), deck, code: info.code, name: info.name, ...matchSetup() };
     const key = JSON.stringify(h);
     if (key === header) return;

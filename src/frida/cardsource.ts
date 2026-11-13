@@ -12,6 +12,11 @@ const TRACKED = ["Creature", "Avatar", "Item", "Spell", "Shout", "Support", "Has
 
 const isNull = (o: any) => o == null || (o.handle && o.handle.isNull());
 const num = (v: any): number => (typeof v === "number" ? v : Number(v?.field?.("value__")?.value ?? v));
+// a field, or the property getter when the field is an auto-property (ClientCardData.Name is "<Name>k__BackingField")
+function prop(o: any, name: string): any {
+  try { return o.field(name).value; } catch (_) { /* property */ }
+  return o.method(`get_${name}`).invoke();
+}
 const str = (v: any): string => (v == null ? "" : typeof v === "string" ? v : String(v.content ?? ""));
 
 export function gameCardSource(p: TeslPort, log: (m: string) => void): CardSource {
@@ -59,17 +64,17 @@ export function gameCardSource(p: TeslPort, log: (m: string) => void): CardSourc
     const types = inv.method("get_CardTypeLookup").invoke();
     if (!isNull(types) && types.method("ContainsKey").invoke(hash)) {
       const type = types.method("get_Item").invoke(hash);
-      const alt = Number(type.field("AlternateOfCardTypeHash").value);
+      const alt = Number(prop(type, "AlternateOfCardTypeHash"));
       const base = alt && types.method("ContainsKey").invoke(alt) ? types.method("get_Item").invoke(alt) : type;
       rec.inInventory = true;
       rec.baseId = String(alt || hash);
-      const data = base.field("ClientCardData").value;
-      rec.name = str(data.field("Name").value) || str(base.field("TypeName").value);
-      rec.color = listOf(base.field("ColorSubTypes").value).map(v => colorNames.get(num(v)) ?? "").filter(c => c && c !== "Neutral" && c !== "None").join("/");
-      rec.cost = Number(data.field("ManaCost").value);
-      const tracked = listOf(data.field("TrackedSubTypes").value).map(v => TRACKED[num(v)] ?? "");
+      const data = prop(base, "ClientCardData");
+      rec.name = str(prop(data, "Name")) || str(prop(base, "TypeName"));
+      rec.color = listOf(prop(base, "ColorSubTypes")).map(v => colorNames.get(num(v)) ?? "").filter(c => c && c !== "Neutral" && c !== "None").join("/");
+      rec.cost = Number(prop(data, "ManaCost"));
+      const tracked = listOf(prop(data, "TrackedSubTypes")).map(v => TRACKED[num(v)] ?? "");
       rec.category = tracked.includes("Creature") ? 0 : tracked.includes("Item") ? 3 : tracked.includes("Support") ? 2 : 1;
-      rec.unique = data.field("Unique").value === true;
+      rec.unique = prop(data, "Unique") === true;
       rec.prophecy = tracked.includes("Prophecy");
       rec.avatar = tracked.includes("Avatar");
     }

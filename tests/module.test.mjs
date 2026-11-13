@@ -27,7 +27,7 @@ function fakeWorld() {
   const klasses = {
     "SPTESL.LogMessageTranslator": { methods: [{ name: "AddHistoryQueue", parameterCount: 1, isStatic: false, virtualAddress: handle(0x1000) }] },
     "SPTESL.GameNetworkManager": obj({}, { get_Instance: () => obj({ _isSpectating: false, _localPlayerUid: obj({ Id: 5 }) }) }),
-    "SettingsManager": obj({}, { get_Instance: () => obj({ LastRetryMatchRequestData: obj({ DeckId: { toString: () => "77" } }) }) }),
+    "SettingsManager": obj({}, { get_Instance: () => obj({ LastRetryMatchRequestData: obj({ DeckId: { toString: () => "77" }, AiDifficulty: 2, CampaignData: obj({ scenarioName: { content: "Act1" } }) }) }) }),
     "SparkleServices.ServicesManager": obj({}, { get_Instance: () => obj({ Inventory: obj({ _inventoryDescription: obj({}), _hashToCodeCached: codes }, { get_InventoryDescription: () => obj({ decks }), get_CardTypeLookup: () => types, get_HashToCodeLookup: () => codes }) }) }),
   };
   let array;
@@ -69,7 +69,7 @@ test("module starts and records queues into the PC format", () => {
   assert.deepEqual([...chunks[2].data], [8, 2, 9]);
   const h = readHeader(chunks);
   assert.equal(h.local, "5"); assert.equal(h.deck, "77"); assert.equal(h.name, "Колода");
-  assert.match(utf8Decode(chunks[0].data), /^local=5\ndeck=77\ncode=SPAAABybABxa\nname=Колода\n$/);
+  assert.match(utf8Decode(chunks[0].data), /^local=5\ndeck=77\ncode=SPAAABybABxa\nname=Колода\nai=Adept\nscenario=Act1\n$/);
 });
 
 test("module without Il2Cpp only logs", () => {

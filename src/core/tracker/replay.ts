@@ -13,7 +13,8 @@ export function replay(chunks: Chunk[], env: ReplayEnv, fileName = "recording"):
   const header = readHeader(chunks);
   const local = Number(header.local ?? 0) || 0;
   const deckId = header.deck ?? "0";
-  const tracker = new Tracker({ ...env, cards }, local);
+  // the bot's difficulty and the campaign scenario come from the recording (PC since e8b0892, phone since 0.2.4)
+  const tracker = new Tracker({ ...env, cards, aiDifficulty: header.ai ?? env.aiDifficulty ?? "", scenario: header.scenario ?? env.scenario ?? "" }, local);
   tracker.log(`=== REPLAY ${fileName} (${chunks.length} chunks, local ${local}, deck ${deckId}) ===`);
   const decoded = header.code ? cards.decodeDeckCode(header.code) : null;
   if (decoded) {

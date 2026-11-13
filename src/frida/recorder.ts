@@ -43,7 +43,7 @@ export function startRecorder(p: TeslPort): void {
   function writeHeader() {
     const deck = matchDeckId();
     const info = deck !== "0" ? deckInfo(deck) : { name: "", code: "" };
-    const h = { local: localPlayerUid(), deck, code: info.code, name: info.name };
+    const h = { local: localPlayerUid(), deck, code: info.code, name: info.name, ...matchSetup() };
     const key = JSON.stringify(h);
     if (key === header) return;
     header = key;
@@ -64,6 +64,28 @@ export function startRecorder(p: TeslPort): void {
   }
   // The deck's display name and its code (the PC replay falls back to the code when the id is not in its inventory,
   // e.g. a phone-only or stock deck).
+  // RetryData.AiDifficulty (enum Matching.IAiDifficulty: None, Novice, Adept, Expert) and CampaignData.scenarioName,
+  // written as "ai" and "scenario" like the PC: the bot deck lookup and the saved deck per bot depend on them.
+  function matchSetup(): { ai: string; scenario: string } {
+    const out = { ai: "", scenario: "" };
+    try {
+      const s = settingsManager.method("get_Instance").invoke();
+      const retry = isNull(s) ? null : s.field("LastRetryMatchRequestData").value;
+      if (isNull(retry)) return out;
+      try {
+        const v = retry.field("AiDifficulty").value;
+        if (v == null) throw Error("no difficulty");
+        const n = typeof v === "number" ? v : Number(v?.field?.("value__")?.value ?? v);
+        out.ai = ["None", "Novice", "Adept", "Expert"][n] ?? String(n);
+      } catch (_) { /* optional */ }
+      try {
+        const campaign = retry.field("CampaignData").value;
+        if (!isNull(campaign)) out.scenario = String(campaign.field("scenarioName").value?.content ?? "");
+      } catch (_) { /* optional */ }
+    } catch (_) { /* optional */ }
+    return out;
+  }
+
   function deckInfo(id: string): { name: string; code: string } {
     const info = { name: "", code: "" };
     try {

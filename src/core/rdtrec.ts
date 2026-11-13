@@ -36,7 +36,10 @@ export function decodeChunks(all: Uint8Array): Chunk[] {
 export interface RecordHeader { local?: string; deck?: string; code?: string; name?: string; [key: string]: string | undefined; }
 
 export function encodeHeader(h: RecordHeader): Uint8Array {
-  const text = ["local", "deck", "code", "name"].map(k => `${k}=${h[k] ?? ""}`).join("\n") + "\n";
+  // the PC's keys in its order; ai (bot difficulty) and scenario (campaign) when given, as the PC writes them since e8b0892
+  const keys = ["local", "deck", "code", "name"];
+  for (const k of Object.keys(h)) if (!keys.includes(k)) keys.push(k);
+  const text = keys.map(k => `${k}=${h[k] ?? ""}`).join("\n") + "\n";
   return utf8Encode(text);
 }
 

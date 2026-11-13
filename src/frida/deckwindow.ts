@@ -87,6 +87,7 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
     const cards = t.windowCards(side);
     ourCall = true;
     try { board.method("ToggleGenericCardPicker").invoke(cardList(cards, t), boxed(pickerType, "value__", PickerCustomUI)); } finally { ourCall = false; }
+    shiftLogged = false;
     try { placePicker(true); } catch (e) { fail("list place", e); }
     openSide = side;
     shown = JSON.stringify(cards);
@@ -178,6 +179,31 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
     return pickerRect;
   }
 
+  // the game moves the panel back on later frames (its show animation / layout): while our list is open, the shift is
+  // applied after every CardListPicker.LateUpdate (as the PC hooks it too), and logged once per open for diagnostics
+  let shiftLogged = false;
+  {
+    const late = klass("SPTESL.CardListPicker").methods.find((m: any) => m.name === "LateUpdate" && m.parameterCount === 0);
+    if (late && !late.virtualAddress.isNull()) {
+      const attach = p.hookAttach ?? ((target: any, callbacks: any) => Interceptor.attach(target, callbacks));
+      attach(late.virtualAddress, {
+        onLeave() {
+          if (!openSide || isNull(pickerRect)) return;
+          try { placePicker(true); } catch (e) { fail("list place", e); }
+        },
+      });
+    }
+  }
+
+  function describe(rect: any): string {
+    const v = (x: any) => `${Math.round(Number(x.field("x").value))},${Math.round(Number(x.field("y").value))}`;
+    const names: string[] = [];
+    let t = rect;
+    for (let i = 0; i < 3 && !isNull(t); i++) { names.unshift(String(t.method("get_name").invoke()?.content ?? "?")); t = t.method("get_parent").invoke(); }
+    return `${names.join("/")} pos ${v(rect.method("get_anchoredPosition").invoke())} size ${v(rect.method("get_sizeDelta").invoke())} ` +
+      `anchors ${v(rect.method("get_anchorMin").invoke())}-${v(rect.method("get_anchorMax").invoke())} local ${v(rect.method("get_localPosition").invoke())}`;
+  }
+
   function placePicker(ours: boolean) {
     const rect = pickerTransform();
     if (isNull(rect)) return;
@@ -188,8 +214,12 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
       shift = ShiftPx / scale;
     }
     const pos = rect.method("get_anchoredPosition").invoke();
-    pos.field("x").value = pickerX - shift;
+    const want = pickerX - shift;
+    if (Math.abs(Number(pos.field("x").value) - want) < 0.5) return;
+    const before = ours && !shiftLogged ? describe(rect) : "";
+    pos.field("x").value = want;
     rect.method("set_anchoredPosition").invoke(pos);
+    if (before) { shiftLogged = true; current()?.log(`Window: list moved by ${Math.round(shift)} units: ${before} -> ${describe(rect)}`); }
   }
 
   function deckButton(panel: any, side: "deck" | "opp") {

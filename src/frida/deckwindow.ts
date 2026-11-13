@@ -144,6 +144,22 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
     return c.unbox();
   }
 
+  const canvasClass = p.ucls!("UnityEngine.Canvas");
+  function aboveList(go: any) {
+    const picker = matchUi.field("_cardListPicker").value;
+    let order = 0;
+    if (!isNull(picker)) {
+      const pc = picker.method("GetComponentInParent", 1).overload("System.Type").invoke(canvasClass.type.object);
+      if (!isNull(pc)) order = Number(pc.method("get_sortingOrder").invoke());
+    }
+    let canvas = component(go, canvasClass);
+    if (isNull(canvas)) canvas = go.method("AddComponent").overload("System.Type").invoke(canvasClass.type.object);
+    canvas.method("set_overrideSorting").invoke(true);
+    canvas.method("set_sortingOrder").invoke(order + 1);
+    const raycaster = p.ucls!("UnityEngine.UI.GraphicRaycaster");
+    if (isNull(component(go, raycaster))) go.method("AddComponent").overload("System.Type").invoke(raycaster.type.object);
+  }
+
   function deckButton(panel: any, side: "deck" | "opp") {
     if (isNull(panel)) return false;
     const go = panel.field("_deckBtn").value;
@@ -157,6 +173,9 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
       button.method("set_targetGraphic").invoke(image);
     }
     button.method("set_interactable").invoke(true);
+    // the open list spans the right-hand icon column: the icon gets its own canvas one step above the list's, so it
+    // stays visible and tappable over it (a second tap closes, the other icon switches)
+    try { aboveList(go); } catch (e) { fail("deck button order", e); }
     const key = go.handle.toString();
     const click = Il2Cpp.delegate(actionClass, () => {
       if (gameWants.get(key)) return; // the game is choosing from the deck: its button

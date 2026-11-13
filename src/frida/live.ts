@@ -11,7 +11,9 @@ import type { CardSource } from "../core/tracker/cards";
 
 const TypeFullGameState = 11;
 
-export function startLive(p: TeslPort, logDir: string, source?: CardSource, makeDirs?: (path: string) => void): (e: QueueEvent) => void {
+export interface Live { onQueue: (e: QueueEvent) => void; current: () => Tracker | null }
+
+export function startLive(p: TeslPort, logDir: string, source?: CardSource, makeDirs?: (path: string) => void): Live {
   const cards = new Cards(source ?? gameCardSource(p, m => p.log(m)));
   // opened on the first line, after creating the folder (a fresh install has no rdt folder yet); retried if it fails
   let log: File | null = null, logTries = 0;
@@ -57,7 +59,7 @@ export function startLive(p: TeslPort, logDir: string, source?: CardSource, make
     t.processQueue(queue, isPast);
   }
 
-  return (e: QueueEvent) => {
+  const onQueue = (e: QueueEvent) => {
     if (e.translator !== stream || !tracker) newMatch(e);
     const t = tracker!;
     t.setLocal(e.local);
@@ -73,6 +75,7 @@ export function startLive(p: TeslPort, logDir: string, source?: CardSource, make
     t.refreshOpponent();
     t.logWindowSnapshot(false);
   };
+  return { onQueue, current: () => (tracker && tracker.deckRows ? tracker : null) };
 }
 
 function stamp(): string {

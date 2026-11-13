@@ -913,6 +913,21 @@ export class Tracker {
     return entries;
   }
 
+  // The cards a window shows as (card id, copies): the deck's remaining copies; the opponent's remaining copies of a
+  // known deck, otherwise the cards seen (as often as played). Feeds the game's own card list on the phone.
+  windowCards(side: "deck" | "opp"): [string, number][] {
+    const out: [string, number][] = [];
+    if (side === "deck") {
+      for (const row of this.deckRows ?? []) if (row.Remaining > 0) out.push([row.Id, row.Remaining]);
+    } else {
+      for (const row of this.oppRows) {
+        const n = row.Start > 0 ? row.Remaining : row.Total;
+        if (n > 0) out.push([row.Id, n]);
+      }
+    }
+    return out;
+  }
+
   // ---- log checks (Replay.cs LogWindowSnapshot, Events.cs LogCheck) ----
 
   logWindowSnapshot(full: boolean) {

@@ -20,7 +20,7 @@ test(`live path equals the replay (${names.length} local goldens)`, { skip: (!ca
     globalThis.File = class { constructor() {} write(s) { lines.push(...String(s).trimEnd().split("\n").map(l => l.replace(/^\S+ /, ""))); } flush() {} close() {} };
     const portLog = [];
     const source = dbSource(cardsFile.cards);
-    const onQueue = startLive({ log: m => portLog.push(m) }, "/x", source);
+    const { onQueue } = startLive({ log: m => portLog.push(m) }, "/x", source);
     // the inventory deck = the recorded code, decoded the same way
     const deck = () => ({ id: header.deck, name: header.name ?? "", cards: new Map([...replayDeck(header.code, source)]) });
     for (const c of chunks) if (c.type === ChunkQueue) onQueue({ translator: "t1", bytes: c.data, handle: "h", pastHandle: () => "", local: Number(header.local), deck });

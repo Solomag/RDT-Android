@@ -4,6 +4,7 @@ import { RDT_VERSION } from "../core";
 import { port } from "./port";
 import { startRecorder, externalDir, mkdirs } from "./recorder";
 import { startLive } from "./live";
+import { startDeckWindow } from "./deckwindow";
 
 const p = port();
 try {
@@ -12,7 +13,11 @@ try {
     let live: ReturnType<typeof startLive> | undefined;
     try { live = startLive(p, `${externalDir(p)}/rdt`, undefined, mkdirs); p.log("tracking: on"); }
     catch (e) { p.log(`tracking: off (${e})`); }
-    startRecorder(p, live);
+    if (live) {
+      const current = live.current;
+      try { startDeckWindow(p, current); } catch (e) { p.log(`window: off (${e})`); }
+    }
+    startRecorder(p, live?.onQueue);
   }
 } catch (e) {
   try { p.log(`rdt start failed: ${e}`); } catch (_) { /* never break the game */ }

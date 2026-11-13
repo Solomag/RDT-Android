@@ -191,7 +191,7 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
     openSide = null;
     button("RdtDeckButton", parent, "Deck", 330, () => open("deck"));
     oppButton = button("RdtOppButton", parent, "Opp", 490, () => open("opp")).go;
-    button("RdtGearButton", parent, "⚙", 610, () => { if (!isNull(panel)) panel.method("SetActive").invoke(!panel.method("get_activeSelf").invoke()); }, -160, 110, 30);
+    button("RdtGearButton", parent, "Opt", 625,() => { if (!isNull(panel)) panel.method("SetActive").invoke(!panel.method("get_activeSelf").invoke()); }, -160, 110, 30);
     try { buildPanel(parent); } catch (e) { fail("settings", e); }
     applySettings();
     for (const name of ["RdtDeckButton", "RdtOppButton", "RdtGearButton", "RdtSettings"]) {

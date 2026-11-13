@@ -9,6 +9,9 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repo = fileURLToPath(new URL("..", import.meta.url));
+// The release workflow sets these for the real key; the test uses its own throwaway key.
+const baseEnv = { ...process.env };
+delete baseEnv.RDT_PUBLIC_KEY; delete baseEnv.RDT_SIGNING_KEY; delete baseEnv.RDT_CHANNEL_BASE;
 
 test("release signs sha256:revision and the payload matches the manifest", () => {
   const tmp = mkdtempSync(join(tmpdir(), "rdt-release-"));
@@ -19,7 +22,7 @@ test("release signs sha256:revision and the payload matches the manifest", () =>
     const keyFile = join(tmp, "..", `rdt-test-${process.pid}.pem`);
     writeFileSync(keyFile, privateKey.export({ type: "pkcs8", format: "pem" }));
     try {
-      execFileSync(process.execPath, ["tools/release.mjs", "3"], { cwd: tmp, env: { ...process.env, RDT_SIGNING_KEY: keyFile, RDT_CHANNEL_BASE: "https://example.invalid/r/" }, stdio: "pipe" });
+      execFileSync(process.execPath, ["tools/release.mjs", "3"], { cwd: tmp, env: { ...baseEnv, RDT_SIGNING_KEY: keyFile, RDT_CHANNEL_BASE: "https://example.invalid/r/" }, stdio: "pipe" });
       const m = JSON.parse(readFileSync(join(tmp, "release/manifest.json"), "utf8"));
       const payload = readFileSync(join(tmp, "release/payloads", `${m.sha256}.js`));
       assert.equal(payload.length, m.bytes);
@@ -29,9 +32,9 @@ test("release signs sha256:revision and the payload matches the manifest", () =>
       assert.ok(!verify(null, Buffer.from(`${m.sha256}:4`), createPublicKey(privateKey), Buffer.from(m.sig, "hex")));
       assert.equal(m.url, `https://example.invalid/r/payloads/${m.sha256}.js`);
       // a key other than the pinned one never publishes
-      assert.throws(() => execFileSync(process.execPath, ["tools/release.mjs", "4"], { cwd: tmp, env: { ...process.env, RDT_SIGNING_KEY: keyFile, RDT_PUBLIC_KEY: "00".repeat(32) }, stdio: "pipe" }));
+      assert.throws(() => execFileSync(process.execPath, ["tools/release.mjs", "4"], { cwd: tmp, env: { ...baseEnv, RDT_SIGNING_KEY: keyFile, RDT_PUBLIC_KEY: "00".repeat(32) }, stdio: "pipe" }));
       // the revision may only grow
-      assert.throws(() => execFileSync(process.execPath, ["tools/release.mjs", "3"], { cwd: tmp, env: { ...process.env, RDT_SIGNING_KEY: keyFile }, stdio: "pipe" }));
+      assert.throws(() => execFileSync(process.execPath, ["tools/release.mjs", "3"], { cwd: tmp, env: { ...baseEnv, RDT_SIGNING_KEY: keyFile }, stdio: "pipe" }));
     } finally { rmSync(keyFile, { force: true }); }
   } finally { rmSync(tmp, { recursive: true, force: true }); }
 });

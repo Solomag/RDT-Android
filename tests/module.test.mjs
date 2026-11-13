@@ -17,7 +17,7 @@ function fakeWorld() {
     method: m => ({ invoke: (...a) => methods[m](...a), overload: () => ({ invoke: (...a) => methods[m](...a) }) }),
   });
   const list = items => obj({}, { get_Count: () => items.length, get_Item: i => items[i] });
-  const dict = map => obj({}, { ContainsKey: k => k in map, get_Item: k => map[k] });
+  const dict = map => obj({}, { ContainsKey: k => k in map, get_Item: k => map[k], get_Count: () => Object.keys(map).length });
   // card 11 is an alternate art of 10: two copies of 11 + one of 10 count as three of 10
   const cards = list([obj({ typeHash: 10, numRegular: 1, numPremium: 0 }), obj({ typeHash: 11, numRegular: 1, numPremium: 1 }), obj({ typeHash: 20, numRegular: 2, numPremium: 0 })]);
   const deck = obj({ id: { toString: () => "77" }, displayName: { content: "abc-deck_name" }, cards }, { get_DisplayName: () => ({ content: "Колода" }) });
@@ -28,7 +28,7 @@ function fakeWorld() {
     "SPTESL.LogMessageTranslator": { methods: [{ name: "AddHistoryQueue", parameterCount: 1, isStatic: false, virtualAddress: handle(0x1000) }] },
     "SPTESL.GameNetworkManager": obj({}, { get_Instance: () => obj({ _isSpectating: false, _localPlayerUid: obj({ Id: 5 }) }) }),
     "SettingsManager": obj({}, { get_Instance: () => obj({ LastRetryMatchRequestData: obj({ DeckId: { toString: () => "77" } }) }) }),
-    "SparkleServices.ServicesManager": obj({}, { get_Instance: () => obj({ Inventory: obj({}, { get_InventoryDescription: () => obj({ decks }), get_CardTypeLookup: () => types, get_HashToCodeLookup: () => codes }) }) }),
+    "SparkleServices.ServicesManager": obj({}, { get_Instance: () => obj({ Inventory: obj({ _inventoryDescription: obj({}), _hashToCodeCached: codes }, { get_InventoryDescription: () => obj({ decks }), get_CardTypeLookup: () => types, get_HashToCodeLookup: () => codes }) }) }),
   };
   let array;
   const outputClass = { alloc: () => obj({}, { ".ctor": a => { array = a; }, Flush: () => {} }) };

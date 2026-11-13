@@ -85,7 +85,17 @@ export function startRecorder(p: TeslPort): void {
   }
 
   function codeOfDeck(inventory: any, deck: any): string {
+    // The game builds HashToCodeLookup lazily from CardTypeLookup; called before the inventory description is loaded it
+    // caches EMPTY tables until restart (breaking its own deck export). Only touch it with the description loaded, and
+    // drop empty cached tables so the game rebuilds them.
+    if (isNull(inventory.field("_inventoryDescription").value)) return "";
     const types = inventory.method("get_CardTypeLookup").invoke();
+    if (isNull(types) || Number(types.method("get_Count").invoke()) === 0) return "";
+    const cached = inventory.field("_hashToCodeCached").value;
+    if (!isNull(cached) && Number(cached.method("get_Count").invoke()) === 0) {
+      inventory.field("_hashToCodeCached").value = null;
+      inventory.field("_codeToHashCached").value = null;
+    }
     const codes = inventory.method("get_HashToCodeLookup").invoke();
     const cards = deck.field("cards").value;
     const counts = new Map<number, number>();

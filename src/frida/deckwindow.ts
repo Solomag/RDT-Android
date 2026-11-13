@@ -24,7 +24,7 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
   const pickerType = klass("SPTESL.MatchUI").nestedClasses.find((n: any) => n.name === "CardListPickerType");
   const listClass = Il2Cpp.corlib.class("System.Collections.Generic.List`1").inflate(clientCard);
   let errors = 0, builtFor = "";
-  let board: any = null;
+  let board: any = null, matchUi: any = null, openSide: "deck" | "opp" | null = null;
   const fail = (what: string, e: any) => { if (errors++ < 5) p.log(`window: ${what} failed: ${e}`); };
 
   function boxed(k: any, field: string, value: number): any {
@@ -55,8 +55,34 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
   function open(side: "deck" | "opp") {
     const t = current();
     if (!t) { p.log("window: no tracked deck yet"); return; }
-    if (isNull(board)) { p.log("window: no board"); return; }
+    if (isNull(board) || isNull(matchUi)) { p.log("window: no board"); return; }
+    // the game's toggle reopens on a second tap: close it ourselves when our list for this side is the open one
+    const active = matchUi.method("GetCardListPickerActive").invoke() === true;
+    if (active) {
+      matchUi.method("HideAndCleanupCardListPicker").invoke();
+      if (openSide === side) { openSide = null; return; }
+    }
     board.method("ToggleGenericCardPicker").invoke(cardList(t.windowCards(side)), boxed(pickerType, "value__", PickerCustomUI));
+    openSide = side;
+  }
+
+  // a button the size of a finger: dark plate, gold text, on the right edge between the magicka gem and the graveyard
+  function button(name: string, parent: any, text: string, y: number, action: () => void) {
+    const go = ui.uiNew(name, parent);
+    ui.uiPlace(go, 1, 1, 1, 0.5, -16, y, 150, 64);
+    const bg = ui.uiAdd(go, "UnityEngine.UI.Image");
+    bg.method("set_color").invoke(color(0.08, 0.07, 0.06, 0.85));
+    const label = ui.uiNew("Label", go.method("get_transform").invoke());
+    ui.uiStretch(ui.uiRect(label));
+    const tmp = ui.uiText(label, text, 30);
+    tmp.method("set_color").invoke(color(1, 0.82, 0.35, 1));
+    ui.uiButton(go, bg, () => { try { action(); } catch (e) { fail("open", e); } });
+  }
+
+  function color(r: number, g: number, b: number, a: number): any {
+    const c = p.ucls!("UnityEngine.Color").alloc();
+    c.field("r").value = r; c.field("g").value = g; c.field("b").value = b; c.field("a").value = a;
+    return c.unbox();
   }
 
   // once per match (the board and its UI are new each match): find the board, put the buttons on its match UI
@@ -66,12 +92,13 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
     board = boards[boards.length - 1];
     const key = board.handle.toString();
     if (key === builtFor) return;
-    let matchUi = board.field("MatchUI_Mobile").value;
+    matchUi = board.field("MatchUI_Mobile").value;
     if (isNull(matchUi)) matchUi = board.field("MatchUI_PC").value;
     if (isNull(matchUi)) { p.log("window: no match UI"); return; }
     const parent = matchUi.method("get_transform").invoke();
-    ui.uiLabeledButton("RdtDeckButton", parent, "Deck", -12, -120, 90, () => { try { open("deck"); } catch (e) { fail("open", e); } });
-    ui.uiLabeledButton("RdtOppButton", parent, "Opp", -12, -84, 90, () => { try { open("opp"); } catch (e) { fail("open", e); } });
+    openSide = null;
+    button("RdtOppButton", parent, "Opp", -300, () => open("opp"));
+    button("RdtDeckButton", parent, "Deck", -380, () => open("deck"));
     builtFor = key;
     p.log("window: buttons added");
   }

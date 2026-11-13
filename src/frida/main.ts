@@ -15,7 +15,7 @@ try {
     catch (e) { p.log(`tracking: off (${e})`); }
     if (live) {
       const current = live.current;
-      try { startDeckWindow(p, current); } catch (e) { p.log(`window: off (${e})`); }
+      try { const w = startDeckWindow(p, current); live.onDeckLoaded = w.onMatch; } catch (e) { p.log(`window: off (${e})`); }
     }
     startRecorder(p, live?.onQueue);
   }

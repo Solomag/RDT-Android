@@ -11,7 +11,7 @@ import type { CardSource } from "../core/tracker/cards";
 
 const TypeFullGameState = 11;
 
-export interface Live { onQueue: (e: QueueEvent) => void; current: () => Tracker | null }
+export interface Live { onQueue: (e: QueueEvent) => void; current: () => Tracker | null; onDeckLoaded?: () => void }
 
 export function startLive(p: TeslPort, logDir: string, source?: CardSource, makeDirs?: (path: string) => void): Live {
   const cards = new Cards(source ?? gameCardSource(p, m => p.log(m)));
@@ -44,6 +44,7 @@ export function startLive(p: TeslPort, logDir: string, source?: CardSource, make
     let total = 0;
     for (const n of deck.cards.values()) total += n;
     tracker!.loadDeck(deck.cards, deck.name);
+    try { live.onDeckLoaded?.(); } catch (_) { /* the window must never stop tracking */ }
     write(`Overlay: deck '${deck.name}' (by id ${deck.id}) ${total} cards, ${deck.cards.size} distinct`);
     if (pending.length > 0) write(`Events: replaying ${pending.length} queued message(s)`);
     const queued = pending;
@@ -75,7 +76,8 @@ export function startLive(p: TeslPort, logDir: string, source?: CardSource, make
     t.refreshOpponent();
     t.logWindowSnapshot(false);
   };
-  return { onQueue, current: () => (tracker && tracker.deckRows ? tracker : null) };
+  const live: Live = { onQueue, current: () => (tracker && tracker.deckRows ? tracker : null) };
+  return live;
 }
 
 function stamp(): string {

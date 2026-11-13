@@ -38,14 +38,20 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
   // fake net uid -> the label shown in the row's count (CardListItem.SetData is hooked below)
   const labels = new Map<number, string>();
 
-  function cardList(cards: [string, number, string][]): any {
+  // fake net uids of modified copies: their names go green, as the game marks changed cards (and the PC does)
+  const modified = new Set<number>();
+  const attrClass = klass("SPTESL.AttributeType");
+
+  function cardList(cards: [string, number, string, string][], t: Tracker): any {
     labels.clear();
+    modified.clear();
     const list = listClass.alloc();
     list.method(".ctor", 0).invoke();
     const gm = gameManager.method("get_Instance").invoke();
     const getCard = gm.method("GetCard").overload("System.Int32");
     let fake = FakeUidBase;
-    for (const [id, copies, label] of cards) {
+    for (const [id, copies, label, mod] of cards) {
+      const attrs = mod ? t.modAttributes(id, mod) : [];
       const card = getCard.invoke(Number(id));
       if (isNull(card)) continue;
       for (let i = 0; i < copies; i++) {
@@ -53,6 +59,12 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
         cc.method(".ctor").overload("SPTESL.Card").invoke(card);
         cc.method("set_NetUid").invoke(boxed(netUidClass, "Id", ++fake));
         labels.set(fake, label);
+        if (attrs.length > 0) {
+          modified.add(fake);
+          for (const [attr, value] of attrs) cc.method("SetAttribute").invoke(boxed(attrClass, "value__", attr), value);
+          const health = attrs.find(([a]) => a === 25);
+          if (health) try { cc.method("set_CurrentHealth").invoke(health[1]); } catch (_) { /* no such setter */ }
+        }
         list.method("Add").invoke(cc);
       }
     }
@@ -70,7 +82,7 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
       if (openSide === side) { openSide = null; return; }
     }
     const cards = t.windowCards(side);
-    board.method("ToggleGenericCardPicker").invoke(cardList(cards), boxed(pickerType, "value__", PickerCustomUI));
+    board.method("ToggleGenericCardPicker").invoke(cardList(cards, t), boxed(pickerType, "value__", PickerCustomUI));
     openSide = side;
     shown = JSON.stringify(cards);
   }
@@ -98,7 +110,7 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
     shown = key;
     t.log(`Window: refresh ${openSide} (${cards.length} rows)`);
     matchUi.method("HideAndCleanupCardListPicker").invoke();
-    board.method("ToggleGenericCardPicker").invoke(cardList(cards), boxed(pickerType, "value__", PickerCustomUI));
+    board.method("ToggleGenericCardPicker").invoke(cardList(cards, t), boxed(pickerType, "value__", PickerCustomUI));
     t.log("Window: refresh done");
   }
   const guarded = () => { try { refresh(); } catch (e) { refreshDue = false; fail("refresh", e); } };
@@ -152,7 +164,16 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
   if (setData && !setData.virtualAddress.isNull()) {
     const attach = p.hookAttach ?? ((target: any, callbacks: any) => Interceptor.attach(target, callbacks));
     attach(setData.virtualAddress, {
-      onEnter(args: any) { (this as any).item = args[0]; },
+      onEnter(args: any) {
+        (this as any).item = args[0];
+        if (modified.size === 0) return;
+        try {
+          const data = new Il2Cpp.Object(args[1]);
+          const cc = data.field("ClientCard").value;
+          if (!isNull(cc) && modified.has(Number(cc.method("get_NetUid").invoke().field("Id").value)))
+            data.field("OverrideNameColorHex").value = Il2Cpp.string("#7CFF5A");
+        } catch (e) { fail("colour", e); }
+      },
       onLeave() {
         if (labels.size === 0) return;
         try {

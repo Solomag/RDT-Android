@@ -916,17 +916,50 @@ export class Tracker {
   // The cards a window shows as (card id, copies): the deck's remaining copies; the opponent's remaining copies of a
   // known deck, otherwise the cards seen (as often as played). Feeds the game's own card list on the phone.
   // The third value is the label the PC shows in the count's place ("left/total", "x2", "seen"; "" for single copies).
-  windowCards(side: "deck" | "opp"): [string, number, string][] {
-    const out: [string, number, string][] = [];
+  // Deck: modified copies in the deck ("cost 0", "+5/+5, Guard") come first as their own rows, like DeckEntries on PC
+  // (label = their count when more than one), then the plain copies with "left/total" of what is not carved out.
+  // The fourth value is the modification ("" for plain copies).
+  windowCards(side: "deck" | "opp"): [string, number, string, string][] {
+    const out: [string, number, string, string][] = [];
     if (side === "deck") {
-      for (const row of this.deckRows ?? []) if (row.Remaining > 0) out.push([row.Id, row.Remaining, this.countText(row.Remaining, row.Total)]);
+      const mods = this.deckModsByRow();
+      for (const row of this.deckRows ?? []) {
+        let left = row.Remaining, carved = 0;
+        for (const [label, count] of mods.get(row.Id) ?? []) {
+          const n = Math.min(count, left);
+          if (n <= 0) continue;
+          out.push([row.Id, n, n > 1 ? String(n) : "", label]);
+          left -= n; carved += n;
+        }
+        const total = Math.max(left, row.Total - carved);
+        if (left > 0) out.push([row.Id, left, this.countText(left, total), ""]);
+      }
     } else {
       for (const row of this.oppRows) {
-        if (row.Start > 0) { if (row.Remaining > 0) out.push([row.Id, row.Remaining, this.countText(row.Remaining, row.Start)]); }
-        else if (row.Total > 0) out.push([row.Id, row.Total, row.Total > 1 ? `x${row.Total}` : "seen"]);
+        if (row.Start > 0) { if (row.Remaining > 0) out.push([row.Id, row.Remaining, this.countText(row.Remaining, row.Start), ""]); }
+        else if (row.Total > 0) out.push([row.Id, row.Total, row.Total > 1 ? `x${row.Total}` : "seen", ""]);
       }
     }
     return out;
+  }
+
+  // A modification label as card attributes to set on a shown copy (PC Picker.cs ApplyMods): [attribute id, value].
+  modAttributes(id: string, label: string): [number, number][] {
+    const out: [number, number][] = [];
+    for (const raw of label.split(",")) {
+      const part = raw.trim();
+      if (part.startsWith("cost ")) out.push([AttrManaCost, Number(part.slice(5))]);
+      else if (part.startsWith("+") || part.startsWith("-")) {
+        const ah = part.split("/");
+        if (ah.length !== 2) continue;
+        out.push([AttrAttack, this.cards.baseAttribute(id, "Attack") + Number(ah[0])]);
+        out.push([AttrMaxHealth, this.cards.baseAttribute(id, "MaxHealth") + Number(ah[1])]);
+      } else {
+        const k = KeywordShown.indexOf(part);
+        if (k >= 0) out.push([KeywordAttributes[k], 1]);
+      }
+    }
+    return out.filter(([, v]) => Number.isFinite(v));
   }
 
   // ---- log checks (Replay.cs LogWindowSnapshot, Events.cs LogCheck) ----

@@ -127,6 +127,15 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
   // the game shows its count tooltip, and the module opens (or closes) the pile's list next to it.
   const pileSide = new Map<string, "deck" | "opp">();
 
+  function objectName(o: any): string {
+    try {
+      const go = o.method("get_gameObject").invoke();
+      const parent = go.method("get_transform").invoke().method("get_parent").invoke();
+      const pn = isNull(parent) ? "" : String(parent.method("get_name").invoke()?.content ?? "") + "/";
+      return pn + String(go.method("get_name").invoke()?.content ?? "?");
+    } catch (_) { return "?"; }
+  }
+
   function build() {
     const boards = Il2Cpp.gc.choose(conductorClass);
     if (boards.length === 0) { p.log("window: no board yet"); return; }
@@ -140,10 +149,14 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
     pileSide.clear();
     const piles = matchUi.field("_deckCountTooltips3d").value;
     const n = isNull(piles) ? 0 : Number(piles.length);
-    for (let i = 0; i < n && i < 2; i++) {
+    const names: string[] = [];
+    for (let i = 0; i < n; i++) {
       const trigger = piles.get(i);
-      if (!isNull(trigger)) pileSide.set(trigger.handle.toString(), i === 0 ? "deck" : "opp");
+      if (isNull(trigger)) { names.push(`${i}: none`); continue; }
+      names.push(`${i}: ${objectName(trigger)} ${trigger.handle}`);
+      if (i < 2) pileSide.set(trigger.handle.toString(), i === 0 ? "deck" : "opp");
     }
+    current()?.log(`Window: deck pile triggers ${names.join("; ")}`);
     applySettings();
     builtFor = key;
     p.log(`window: deck piles ready (${pileSide.size})`);
@@ -157,6 +170,8 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
     attach(mouseDown.virtualAddress, {
       onEnter(args: any) {
         const side = pileSide.get(args[0].toString());
+        // diagnostics while the pile mapping is being settled: which trigger a tap reached
+        try { current()?.log(`Window: tap on ${objectName(new Il2Cpp.Object(args[0]))} ${args[0]} -> ${side ?? "ignored"}`); } catch (_) { /* log only */ }
         if (!side) return;
         // the game is in the middle of its own input: open on the next frame, outside this call. The pile's count
         // tooltip stays: hiding it (UnFire, 0.5.2) also stopped our list from showing.

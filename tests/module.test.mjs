@@ -61,7 +61,7 @@ test("module starts and records queues into the PC format", () => {
   w.hooks[0].onEnter([t, w.queue(Uint8Array.from([8, 1]))]);
   w.hooks[0].onEnter([t, w.queue(Uint8Array.from([8, 2, 9]))]);
   w.hooks[0].onEnter([w.translator(43), w.queue(Uint8Array.from([1]))]); // new match -> new file
-  const paths = Object.keys(w.files);
+  const paths = Object.keys(w.files).filter(f => f.endsWith(".rdtrec")); // Match.log of the live tracker aside
   assert.equal(paths.length, 2, w.logs.join("\n"));
   assert.ok(paths[0].startsWith("/ext/rdt/replays/") && paths[0].endsWith(".rdtrec"));
   const chunks = decodeChunks(new Uint8Array(Buffer.concat(w.files[paths[0]])));

@@ -19,11 +19,18 @@ export function gameCardSource(p: TeslPort, log: (m: string) => void): CardSourc
   const klass = (name: string) => (p.cls ? p.cls(image, name) : image.class(name));
   const services = klass("SparkleServices.ServicesManager");
   const gameManager = klass("SPTESL.GameManager");
-  const textUtils = klass("SPTESL.DynamicTextUtilities");
+  let textUtils: any = null;
+  try { textUtils = klass("SPTESL.DynamicTextUtilities"); } catch (_) { log("cards: no DynamicTextUtilities, raw descriptions"); }
   const attrClass = klass("SPTESL.AttributeType");
-  const subtypeNames = enumNames(klass("SPTESL.CardSubtype"));
-  const colorNames = enumNames(klass("ColorSubType"));
-  const describe = textUtils.methods.find((m: any) => m.name === "GetFixedUpCardDescription" && m.parameterCount === 1 && m.parameters[0].type.name === "SPTESL.Card");
+  const nested = (outer: string, ...path: string[]) => {
+    let k = klass(outer);
+    for (const name of path) k = k.nestedClasses.find((n: any) => n.name === name);
+    return k;
+  };
+  // enum names from the game, the dump's values as the fallback (ColorSubType is nested: Inventory.CardType.ColorSubType)
+  const subtypeNames = enumNames(() => klass("SPTESL.CardSubtype"), CARD_SUBTYPES);
+  const colorNames = enumNames(() => nested("Inventory", "CardType", "ColorSubType"), ["None", "Strength", "Intelligence", "Willpower", "Agility", "Endurance", "Neutral"]);
+  const describe = textUtils?.methods.find((m: any) => m.name === "GetFixedUpCardDescription" && m.parameterCount === 1 && m.parameters[0].type.name === "SPTESL.Card");
   const cache = new Map<string, CardRecord | null>();
   let codeTable: any = null;
   let failures = 0;
@@ -124,11 +131,19 @@ export function gameCardSource(p: TeslPort, log: (m: string) => void): CardSourc
   };
 }
 
-function enumNames(k: any): Map<number, string> {
+function enumNames(find: () => any, fallback: string[]): Map<number, string> {
   const names = new Map<number, string>();
-  try { for (const f of k.fields) if (f.isLiteral) names.set(num(f.value), f.name); } catch (_) { /* none */ }
+  try { for (const f of find().fields) if (f.isLiteral) names.set(num(f.value), f.name); } catch (_) { /* fallback below */ }
+  if (names.size === 0) fallback.forEach((n, i) => names.set(i, n));
   return names;
 }
+
+// SPTESL.CardSubtype as in the dump (0..76); the game's own table wins when readable
+const CARD_SUBTYPES = ("Creature Avatar Item Spell Shout Support Double HasAction HasAbility Strength Intelligence Willpower Agility Endurance Neutral " +
+  "Abomination Animated_Item Argonian Ash_Creature Atronach Automaton Ayelid Baliwog Beast Breton Centaur Chaurus Daedra Dark_Elf Defense Dragon " +
+  "Dreugh Dwemer Egg Elytra Fabricant Factotum Falmer Fish Fyr Gargoyle Giant Gnarl Goblin God Grummite Harpy High_Elf Insect Imp Imperial Khajiit " +
+  "Kwama Lurcher Mammoth Mantikora Minotaur Mudcrab Mummy Nereid Netch Nord Ogre Orc Pastry Portal Reachman Redguard Reptile Scalon Skeever " +
+  "Skeleton Spider Spirit Spriggan Trap Troll").split(" ");
 
 // PC GameData.CleanCardText: keep only <b>, <i>, <color> tags; "\n" escapes become newlines.
 export function cleanCardText(text: string): string {

@@ -59,6 +59,7 @@ export function gameCardSource(p: TeslPort, log: (m: string) => void): CardSourc
     const hash = Number(id);
     if (!Number.isInteger(hash)) return null;
     const rec: CardRecord = { id, baseId: id, inInventory: false, label: "" };
+    let noData = false;
     // inventory meta (MetaOf: the base card's data for any art)
     const inv = inventory();
     const types = inv.method("get_CardTypeLookup").invoke();
@@ -68,15 +69,22 @@ export function gameCardSource(p: TeslPort, log: (m: string) => void): CardSourc
       const base = alt && types.method("ContainsKey").invoke(alt) ? types.method("get_Item").invoke(alt) : type;
       rec.inInventory = true;
       rec.baseId = String(alt || hash);
+      // some card types have no ClientCardData (double cards such as Spawn Mother/Baliwog): reading through null was
+      // an access violation; then the name is the type name and cost/type come from the game card below
       const data = prop(base, "ClientCardData");
-      rec.name = str(prop(data, "Name")) || str(prop(base, "TypeName"));
       rec.color = listOf(prop(base, "ColorSubTypes")).map(v => colorNames.get(num(v)) ?? "").filter(c => c && c !== "Neutral" && c !== "None").join("/");
-      rec.cost = Number(prop(data, "ManaCost"));
-      const tracked = listOf(prop(data, "TrackedSubTypes")).map(v => TRACKED[num(v)] ?? "");
-      rec.category = tracked.includes("Creature") ? 0 : tracked.includes("Item") ? 3 : tracked.includes("Support") ? 2 : 1;
-      rec.unique = prop(data, "Unique") === true;
-      rec.prophecy = tracked.includes("Prophecy");
-      rec.avatar = tracked.includes("Avatar");
+      if (!isNull(data)) {
+        rec.name = str(prop(data, "Name")) || str(prop(base, "TypeName"));
+        rec.cost = Number(prop(data, "ManaCost"));
+        const tracked = listOf(prop(data, "TrackedSubTypes")).map(v => TRACKED[num(v)] ?? "");
+        rec.category = tracked.includes("Creature") ? 0 : tracked.includes("Item") ? 3 : tracked.includes("Support") ? 2 : 1;
+        rec.unique = prop(data, "Unique") === true;
+        rec.prophecy = tracked.includes("Prophecy");
+        rec.avatar = tracked.includes("Avatar");
+      } else {
+        rec.name = str(prop(base, "TypeName"));
+        noData = true;
+      }
     }
     // game card (InfoOf, BaseAttribute, BaseFlag)
     const card = gameManager.method("get_Instance").invoke().method("GetCard").overload("System.Int32").invoke(hash);
@@ -94,9 +102,15 @@ export function gameCardSource(p: TeslPort, log: (m: string) => void): CardSourc
         else if (name.length > 0 && !["Double", "HasAction", "HasAbility", "Neutral", ...COLORS].includes(name)) races.push(name.replace(/_/g, " "));
       }
       rec.type = type.join(", ") + (races.length > 0 ? ` - ${races.join(" ")}` : "");
+      if (noData) {
+        rec.name = rec.infoName || rec.name;
+        rec.category = creature ? 0 : type.includes("Item") ? 3 : type.includes("Support") ? 2 : 1;
+        rec.avatar = !!rec.infoAvatar;
+      }
       rec.colors = colors.join("/");
       const intAttr = (n: number) => { try { return Number(card.method("GetIntegerAttribute").invoke(attr(n))); } catch (_) { return -1; } };
       rec.infoCost = rec.baseManaCost = intAttr(ATTR.ManaCost);
+      if (noData) rec.cost = rec.infoCost;
       rec.baseAttack = intAttr(ATTR.Attack);
       rec.baseMaxHealth = intAttr(ATTR.MaxHealth);
       rec.attack = creature || rec.baseAttack > 0 ? rec.baseAttack : -1;

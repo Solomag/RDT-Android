@@ -321,6 +321,9 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
     onMatch() { p.frameGate!("rdt window", () => { try { build(); } catch (e) { fail("deck buttons", e); } }); },
     // at most one refresh per frame, however many messages arrive
     onUpdate() {
+      // match over: from here on the module touches nothing of the game's UI (no refresh, no shift; the list hooks
+      // see no labels of ours), whatever the game does while it tears the board down
+      if (current()?.gameEnded) { openSide = null; labels.clear(); modified.clear(); return; }
       settleAt = Date.now() + 400; // a burst of messages (a turn change) refreshes once, after it
       if (!openSide || refreshDue) return;
       refreshDue = true;

@@ -61,6 +61,9 @@ export function gameCardSource(p: TeslPort, log: (m: string) => void): CardSourc
     const rec: CardRecord = { id, baseId: id, inInventory: false, label: "" };
     let noData = false;
     // inventory meta (MetaOf: the base card's data for any art)
+    // Each half is read on its own: a card that fails in one (City Guard, 848886119, still failed after the 0.6.4 guard)
+    // keeps what the other gave, and the log names the half.
+    try {
     const inv = inventory();
     const types = inv.method("get_CardTypeLookup").invoke();
     if (!isNull(types) && types.method("ContainsKey").invoke(hash)) {
@@ -86,8 +89,11 @@ export function gameCardSource(p: TeslPort, log: (m: string) => void): CardSourc
         noData = true;
       }
     }
+    } catch (e) { if (failures++ < 5) log(`cards: ${id} inventory data unreadable: ${e}`); }
     // game card (InfoOf, BaseAttribute, BaseFlag)
-    const card = gameManager.method("get_Instance").invoke().method("GetCard").overload("System.Int32").invoke(hash);
+    let card: any = null;
+    try {
+    card = gameManager.method("get_Instance").invoke().method("GetCard").overload("System.Int32").invoke(hash);
     if (!isNull(card)) {
       rec.infoName = str(card.field("Name").value);
       const type: string[] = [], races: string[] = [], colors: string[] = [];
@@ -116,7 +122,8 @@ export function gameCardSource(p: TeslPort, log: (m: string) => void): CardSourc
       rec.attack = creature || rec.baseAttack > 0 ? rec.baseAttack : -1;
       rec.health = creature || rec.baseAttack > 0 ? rec.baseMaxHealth : -1;
       let raw = "";
-      try { raw = describe ? str(describe.invoke(card)) : str(card.field("Description").value); } catch (_) { raw = str(card.field("Description").value); }
+      try { raw = describe ? str(describe.invoke(card)) : str(card.field("Description").value); }
+      catch (_) { try { raw = str(card.field("Description").value); } catch (_) { raw = ""; } }
       rec.text = cleanCardText(raw);
       rec.baseFlags = [];
       for (const [name, n] of KEYWORDS) {
@@ -125,6 +132,7 @@ export function gameCardSource(p: TeslPort, log: (m: string) => void): CardSourc
         if (on || intAttr(n) > 0) rec.baseFlags.push(name);
       }
     }
+    } catch (e) { if (failures++ < 5) log(`cards: ${id} game card data unreadable: ${e}`); }
     if (!rec.inInventory && isNull(card)) return null;
     rec.label = (rec.inInventory ? rec.name : "") || rec.infoName || id;
     return rec;

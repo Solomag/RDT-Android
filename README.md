@@ -21,7 +21,7 @@ RDT is an optional module of the [TESL Reborn Android port](https://github.com/s
 The module is signed. The port checks the signature, file size, hash and version before it runs a download, and refuses anything that doesn't match.
 
 ## Status
-Active development. Current release: 7 (module 0.6.4). Tap the game's own deck icon (the card icon in the right-hand column, yours or the opponent's) to open that side's list, and tap it again to close it, like on PC. The working log is [docs/plan.md](docs/plan.md) (in Russian).
+Active development. Current release: 8 (module 0.7.0). Tap the game's own deck icon (the card icon in the right-hand column, yours or the opponent's) to open that side's list, and tap it again to close it, like on PC. The working log is [docs/plan.md](docs/plan.md) (in Russian).
 
 ## Roadmap
 **Done**
@@ -31,9 +31,10 @@ Active development. Current release: 7 (module 0.6.4). Tap the game's own deck i
 - Deck and opponent lists in the game's own card list: "left / total", bot decks from tesl-decks.com, modified copies, live updates
 - "Count left only" setting in the port's settings screen
 - The lists open from the game's own deck icons (release 7)
+- Banished cards at the end of the game's graveyard lists, as on PC (release 8)
 
 **Next**
-- Mana curve, graveyards with banished cards, created / stolen cards
+- Mana curve, created / stolen cards
 - Cards that left the deck shown greyed (optional, as on PC)
 - Deck archetypes, opponent profiles and the deck library, as on PC
 - Restoring the count after a game restart mid-match; matches with the debug menu marked

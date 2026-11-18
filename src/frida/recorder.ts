@@ -54,8 +54,14 @@ export function startRecorder(p: TeslPort, onQueue?: (e: QueueEvent) => void): v
   function writeHeader() {
     const deck = matchDeckId();
     // the deck's name and code once per deck id (walking the inventory on every message was the main per-message cost)
-    let info = deck !== "0" ? deckInfoCache.get(deck) : { name: "", code: "" };
-    if (!info) { info = deckInfo(deck); if (info.code) deckInfoCache.set(deck, info); }
+    const arenaKey = `arena:${deck}`;
+    let info = deckInfoCache.get(arenaKey) ?? (deck !== "0" ? deckInfoCache.get(deck) : undefined);
+    if (!info) {
+      const arena = arenaInfo();
+      if (arena) { info = arena; if (arena.code) deckInfoCache.set(arenaKey, arena); }
+      else if (deck !== "0") { info = deckInfo(deck); if (info.code) deckInfoCache.set(deck, info); }
+      else info = { name: "", code: "" };
+    }
     const h = { local: localPlayerUid(), deck, code: info.code, name: info.name, ...matchSetup() };
     const key = JSON.stringify(h);
     if (key === header) return;
@@ -132,7 +138,7 @@ export function startRecorder(p: TeslPort, onQueue?: (e: QueueEvent) => void): v
       inventory.field("_codeToHashCached").value = null;
     }
     const codes = inventory.method("get_HashToCodeLookup").invoke();
-    const counts = deckCounts(inventory, deck);
+    const counts = deck instanceof Map ? deck as Map<number, number> : deckCounts(inventory, deck);
     return deckCode(counts, h => (codes.method("ContainsKey").invoke(h) ? String(codes.method("get_Item").invoke(h).content) : undefined));
   }
 
@@ -158,8 +164,68 @@ export function startRecorder(p: TeslPort, onQueue?: (e: QueueEvent) => void): v
   }
 
   // The match deck for the live tracker: id, name and copies, or null while the game has not loaded it.
+  // Arena: the drafted deck is not among the player's decks. The game keeps it in ServicesManager.Arena.ArenaClientData:
+  // one instance per arena (arenaTypeEnum 1 solo, 2 versus), cardTypeHashes = one entry per copy. The match's mode
+  // (RetryData.MatchMode: 2 SoloArena, 3 VersusArena) picks the instance; the running one is the one not completed.
+  function arenaDeck(): { name: string; counts: Map<number, number> } | null {
+    try {
+      const s = settingsManager.method("get_Instance").invoke();
+      const retry = isNull(s) ? null : s.field("LastRetryMatchRequestData").value;
+      if (isNull(retry)) return null;
+      const v = retry.field("MatchMode").value;
+      const mode = Number(typeof v === "number" ? v : v?.field?.("value__")?.value);
+      if (mode !== 2 && mode !== 3) return null;
+      const arenaType = mode === 2 ? 1 : 2;
+      const services_ = services.method("get_Instance").invoke();
+      const arena = services_.field("Arena").value;
+      if (isNull(arena)) return null;
+      const data = arena.method("get_ArenaClientData").invoke();
+      const instances = isNull(data) ? null : data.field("instances").value;
+      if (isNull(instances)) return null;
+      const inventory = services_.field("Inventory").value;
+      const types = inventory.method("get_CardTypeLookup").invoke();
+      let picked: any = null;
+      const n = Number(instances.method("get_Count").invoke());
+      for (let i = 0; i < n; i++) {
+        const inst = instances.method("get_Item").invoke(i);
+        const t = inst.field("arenaTypeEnum").value;
+        if (Number(typeof t === "number" ? t : t?.field?.("value__")?.value) !== arenaType) continue;
+        if (inst.field("isCompleted").value === true && picked) continue;
+        picked = inst;
+      }
+      if (!picked) return null;
+      const hashes = picked.field("cardTypeHashes").value;
+      const counts = new Map<number, number>();
+      const m = isNull(hashes) ? 0 : Number(hashes.method("get_Count").invoke());
+      for (let i = 0; i < m; i++) {
+        const hash = Number(hashes.method("get_Item").invoke(i));
+        let base = hash;
+        if (!isNull(types) && types.method("ContainsKey").invoke(hash)) {
+          const alt = Number(types.method("get_Item").invoke(hash).field("AlternateOfCardTypeHash").value);
+          if (alt) base = alt;
+        }
+        counts.set(base, (counts.get(base) ?? 0) + 1);
+      }
+      return counts.size > 0 ? { name: mode === 2 ? "Solo Arena" : "Versus Arena", counts } : null;
+    } catch (_) { return null; }
+  }
+
+  function arenaInfo(): { name: string; code: string } | null {
+    const a = arenaDeck();
+    if (!a) return null;
+    let code = "";
+    try { code = codeOfDeck(services.method("get_Instance").invoke().field("Inventory").value, a.counts); } catch (_) { /* name only */ }
+    return { name: a.name, code };
+  }
+
   function matchDeck(): MatchDeck | null {
     const id = matchDeckId();
+    const arena = arenaDeck();
+    if (arena) {
+      const cards = new Map<string, number>();
+      for (const [hash, n] of arena.counts) cards.set(String(hash), n);
+      return { id, name: arena.name, cards };
+    }
     if (id === "0") return null;
     try {
       const inventory = services.method("get_Instance").invoke().field("Inventory").value;
@@ -197,6 +263,7 @@ export function startRecorder(p: TeslPort, onQueue?: (e: QueueEvent) => void): v
     if (key !== source) {
       close();
       source = key;
+      for (const k of [...deckInfoCache.keys()]) if (k.startsWith("arena:")) deckInfoCache.delete(k); // a new run may follow
       const now = stamp();
       sameStamp = now === lastStamp ? sameStamp + 1 : 0;
       lastStamp = now;

@@ -24,3 +24,14 @@ test("modified deck copies get their own rows and attributes", () => {
   ]);
   assert.deepEqual(t.modAttributes("100", "cost 0, +2/+2, Guard"), [[22, 0], [24, 5], [25, 5], [29, 1]]);
 });
+
+test("banished cards per side, face-down ones left out", () => {
+  const t = new Tracker({ cards: new Cards(db) }, 1000);
+  t.loadDeck(new Map([["100", 3], ["200", 2]]), "x");
+  const banish = (uid, owner, cardId) => ({ CardNetUid: uid, CardId: cardId, CreatorCardId: 0, PreviousGameZoneType: 0, IsPremium: false,
+    CurrentPosition: { OwningPlayerUid: owner, GameZoneName: 7 }, AffectedAttributeName: [], AffectedAttributeValue: [] });
+  t.processQueue({ Queue: [{ Type: 30030, ActingPlayerInstanceId: 1000, AffectedPlayersArray: [], MatchIntroPlayers: [],
+    AffectedCardsArray: [banish(50, 1000, 100), banish(51, 1000, 200), banish(52, 1000, 100), banish(60, 2000, 200), banish(61, 2000, 0)] }] });
+  assert.deepEqual(t.banishedCards("mine"), [["200", 1], ["100", 2]]);
+  assert.deepEqual(t.banishedCards("opp"), [["200", 1]]);
+});

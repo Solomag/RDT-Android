@@ -6,6 +6,8 @@ import type { TeslPort } from "./port";
 
 const FakeUidBase = 900000;          // net uids of the shown cards (as on PC)
 const PickerCustomUI = 3;            // MatchUI.CardListPickerType.CustomUI
+const PickerMyGraveyard = 1, PickerOtherGraveyard = 2;
+const BanishedUidBase = 950000;      // net uids of the banished cards added to a graveyard list (as on PC)
 
 const isNull = (o: any) => o == null || (o.handle && o.handle.isNull());
 
@@ -69,6 +71,37 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
         list.method("Add").invoke(cc);
       }
     }
+    return list;
+  }
+
+  // PC BeforePickerData: the game's graveyard list plus that side's banished cards (absorbed, removed from the game),
+  // which the game shows nowhere; their count reads "N banished". The game keeps the list it gets, so the new one is
+  // held here until the next.
+  let heldList: any = null;
+  function withBanished(original: any, side: "mine" | "opp"): any {
+    const t = current();
+    if (!t || isNull(original)) return null;
+    const banished = t.banishedCards(side);
+    if (banished.length === 0) return null;
+    const list = listClass.alloc();
+    list.method(".ctor", 0).invoke();
+    const n = Number(original.method("get_Count").invoke());
+    for (let i = 0; i < n; i++) list.method("Add").invoke(original.method("get_Item").invoke(i));
+    const getCard = gameManager.method("get_Instance").invoke().method("GetCard").overload("System.Int32");
+    let fake = BanishedUidBase;
+    for (const [id, copies] of banished) {
+      const card = getCard.invoke(Number(id));
+      if (isNull(card)) continue;
+      for (let i = 0; i < copies; i++) {
+        const cc = clientCard.alloc();
+        cc.method(".ctor").overload("SPTESL.Card").invoke(card);
+        cc.method("set_NetUid").invoke(boxed(netUidClass, "Id", ++fake));
+        labels.set(fake, `${copies} banished`);
+        list.method("Add").invoke(cc);
+      }
+    }
+    try { heldList?.free?.(); } catch (_) { /* gone */ }
+    heldList = list.ref(true);
     return list;
   }
 
@@ -164,7 +197,18 @@ export function startDeckWindow(p: TeslPort, current: () => Tracker | null): Dec
     if (setData && !setData.virtualAddress.isNull()) {
       const attach = p.hookAttach ?? ((target: any, callbacks: any) => Interceptor.attach(target, callbacks));
       attach(setData.virtualAddress, {
-        onEnter() { if (!ourCall && !isNull(pickerRect)) { openSide = null; (this as any).restore = true; } },
+        onEnter(args: any) {
+          if (ourCall) return;
+          if (!isNull(pickerRect)) { openSide = null; (this as any).restore = true; }
+          // a graveyard for viewing (no usable ids, no selection): the banished cards of that side go at its end
+          try {
+            const type = args[2].toInt32(), single = (args[5].toInt32() & 0xff) !== 0;
+            if ((type === PickerMyGraveyard || type === PickerOtherGraveyard) && args[3].isNull() && !single) {
+              const list = withBanished(new Il2Cpp.Object(args[1]), type === PickerMyGraveyard ? "mine" : "opp");
+              if (list) args[1] = list.handle;
+            }
+          } catch (e) { fail("banished", e); }
+        },
         onLeave() { if ((this as any).restore) try { placePicker(false); } catch (e) { fail("list place", e); } },
       });
     }

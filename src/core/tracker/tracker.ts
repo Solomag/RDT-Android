@@ -946,6 +946,15 @@ export class Tracker {
     return out;
   }
 
+  // Banished cards of one side (PC Publish: MyBanishedRows / OppBanishedRows), as (card id, copies); face-down ones
+  // (unknown) are left out, the phone shows them nowhere.
+  banishedCards(side: "mine" | "opp"): [string, number][] {
+    const out: [string, number][] = [];
+    for (const [key, n] of side === "mine" ? this.myBanished : this.oppBanished) if (key !== UnknownCard && n > 0) out.push([key, n]);
+    out.sort((a, b) => (this.cards.meta(a[0])?.Cost ?? 0) - (this.cards.meta(b[0])?.Cost ?? 0) || ordinal(this.label(a[0]), this.label(b[0])));
+    return out;
+  }
+
   // A modification label as card attributes to set on a shown copy (PC Picker.cs ApplyMods): [attribute id, value].
   modAttributes(id: string, label: string): [number, number][] {
     const out: [number, number][] = [];
